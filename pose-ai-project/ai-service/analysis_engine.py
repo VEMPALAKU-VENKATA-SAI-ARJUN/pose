@@ -1,0 +1,745 @@
+"""
+analysis_engine.py
+Performs anatomical pose analysis on detected keypoints.
+
+Public API:
+    distance(a, b)                    -> float
+    calculate_angle(a, b, c)          -> float
+    center_keypoints(keypoints)       -> list   (translate so hip-mid = origin)
+    rotate_keypoints(keypoints, angle)-> list   (rotate by -angle radians around origin)
+    normalize_keypoints(keypoints)    -> list   (scale so torso-length = 1)
+    prepare_for_comparison(keypoints) -> list   (center → rotate → normalize)
+    check_proportions(keypoints)      -> dict
+    check_symmetry(keypoints)         -> dict
+    detect_errors(keypoints)          -> list[dict]
+    detect_pose_type(keypoints)       -> dict
+    check_pose_completeness(keypoints)-> dict
+    analyze(keypoints, w, h)          -> dict
+"""
+
+import numpy as np
+
+# ---------------------------------------------------------------------------
+# Landmark index constants (MediaPipe 33-point order)
+# ---------------------------------------------------------------------------
+IDX = {
+    "NOSE":            0,
+    "LEFT_SHOULDER":  11, "RIGHT_SHOULDER": 12,
+    "LEFT_ELBOW":     13, "RIGHT_ELBOW":    14,
+    "LEFT_WRIST":     15, "RIGHT_WRIST":    16,
+    "LEFT_HIP":       23, "RIGHT_HIP":      24,
+    "LEFT_KNEE":      25, "RIGHT_KNEE":     26,
+    "LEFT_ANKLE":     27, "RIGHT_ANKLE":    28,
+}
+
+# ---------------------------------------------------------------------------
+# Thresholds
+# ---------------------------------------------------------------------------
+
+# Acceptable joint angle ranges (degrees) for a neutral pose
+ANGLE_RANGES = {
+    "left_elbow":  (0, 180),
+    "right_elbow": (0, 180),
+    "left_knee":   (0, 180),
+    "right_knee":  (0, 180),
+    "torso_lean":  (0, 20),   # degrees from vertical
+}
+
+# Ideal limb/torso ratios based on the classical 7.5-head canon
+# (torso ≈ 3 head-units; each ratio is limb / torso_height)
+IDEAL_PROPORTIONS = {
+    "upper_arm": (0.30, 0.55),
+    "lower_arm": (0.25, 0.50),
+    "upper_leg": (0.45, 0.70),
+    "lower_leg": (0.40, 0.65),
+}
+
+# Maximum allowed asymmetry as a fraction of torso height
+SYMMETRY_TOLERANCE = 0.15   # 15 %
+
+
+# ---------------------------------------------------------------------------
+# Core math helpers
+# ---------------------------------------------------------------------------
+
+def distance(a: np.ndarray, b: np.ndarray) -> float:
+    """
+    Euclidean distance between two 2-D points.
+
+    Args:
+        a, b: array-like of shape (2,) — [x, y]
+
+    Returns:
+        Scalar distance as float.
+    """
+    a, b = np.asarray(a, dtype=float), np.asarray(b, dtype=float)
+    return float(np.linalg.norm(a - b))
+
+
+def calculate_angle(a: np.ndarray, b: np.ndarray, c: np.ndarray) -> float:
+    """
+    Angle at vertex B formed by rays B→A and B→C, using the dot-product formula.
+
+        cos θ = (BA · BC) / (|BA| |BC|)
+
+    Args:
+        a, b, c: array-like of shape (2,) — [x, y]
+
+    Returns:
+        Angle in degrees, clamped to [0, 180].
+    """
+    a, b, c = (np.asarray(p, dtype=float) for p in (a, b, c))
+    ba = a - b
+    bc = c - b
+    cos_theta = np.dot(ba, bc) / (np.linalg.norm(ba) * np.linalg.norm(bc) + 1e-8)
+    return float(np.degrees(np.arccos(np.clip(cos_theta, -1.0, 1.0))))
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+def _pt(keypoints: list, name: str) -> np.ndarray:
+    """Return (x, y) array for a named keypoint; raises KeyError if missing."""
+    kp = next((k for k in keypoints if k["name"] == name), None)
+    if kp is None:
+        raise KeyError(f"Keypoint '{name}' not found in detection result")
+    return np.array([kp["x"], kp["y"]], dtype=float)
+
+
+def _torso_height(keypoints: list) -> float:
+    """Vertical distance from shoulder midpoint to hip midpoint."""
+    ls = _pt(keypoints, "LEFT_SHOULDER")
+    rs = _pt(keypoints, "RIGHT_SHOULDER")
+    lh = _pt(keypoints, "LEFT_HIP")
+    rh = _pt(keypoints, "RIGHT_HIP")
+    return distance((ls + rs) / 2, (lh + rh) / 2)
+
+
+# ---------------------------------------------------------------------------
+# Keypoint normalization  (Parts 1, 2, 5)
+# ---------------------------------------------------------------------------
+
+def _kp_list_to_map(keypoints: list) -> dict:
+    """{ NAME: np.array([x, y]) }"""
+    return {k["name"]: np.array([k["x"], k["y"]], dtype=float) for k in keypoints}
+
+
+def _map_to_kp_list(kp_map: dict, original: list) -> list:
+    """
+    Rebuild a keypoint list from a name→array map, preserving index and score
+    from the original list.  Only names present in kp_map are included.
+    """
+    index_score = {k["name"]: (k.get("index", 0), k.get("score", 1.0)) for k in original}
+    result = []
+    for name, pt in kp_map.items():
+        idx, score = index_score.get(name, (0, 1.0))
+        result.append({
+            "index": idx,
+            "name":  name,
+            "x":     float(pt[0]),
+            "y":     float(pt[1]),
+            "score": score,
+        })
+    return result
+
+
+def center_keypoints(keypoints: list) -> list:
+    """
+    Translate all keypoints so the hip midpoint becomes the origin (0, 0).
+
+    Removes positional differences — two identical poses placed at different
+    locations in the frame will align perfectly after centering.
+
+    Args:
+        keypoints: original keypoint list (not modified)
+
+    Returns:
+        New keypoint list with hip-mid at (0, 0).
+        Returns original list unchanged if hip keypoints are missing.
+    """
+    try:
+        lh = _pt(keypoints, "LEFT_HIP")
+        rh = _pt(keypoints, "RIGHT_HIP")
+        center = (lh + rh) / 2
+    except KeyError:
+        return keypoints
+
+    kp_map   = _kp_list_to_map(keypoints)
+    centered = {name: pt - center for name, pt in kp_map.items()}
+    return _map_to_kp_list(centered, keypoints)
+
+
+def rotate_keypoints(keypoints: list, angle: float) -> list:
+    """
+    Rotate all keypoints by -angle radians around the origin.
+
+    Passing the pose's own shoulder angle cancels its tilt so the shoulder
+    line becomes horizontal.  Call center_keypoints() first so the rotation
+    is applied around the body centre, not the image corner.
+
+    The rotation matrix for angle θ (counter-clockwise) is:
+        [ cos θ  -sin θ ]
+        [ sin θ   cos θ ]
+
+    We pass -angle to undo the detected tilt:
+        x' = x·cos(-angle) - y·sin(-angle)
+        y' = x·sin(-angle) + y·cos(-angle)
+
+    Args:
+        keypoints: original keypoint list (not modified)
+        angle:     shoulder orientation in radians, computed via
+                   atan2(right_shoulder.y - left_shoulder.y,
+                         right_shoulder.x - left_shoulder.x)
+
+    Returns:
+        New keypoint list rotated by -angle.
+    """
+    cos_a = np.cos(-angle)
+    sin_a = np.sin(-angle)
+    R = np.array([[cos_a, -sin_a],
+                  [sin_a,  cos_a]])
+
+    kp_map  = _kp_list_to_map(keypoints)
+    rotated = {name: R @ pt for name, pt in kp_map.items()}
+    return _map_to_kp_list(rotated, keypoints)
+
+
+def _shoulder_angle(keypoints: list) -> float:
+    """
+    Compute the orientation angle of the shoulder line in radians.
+
+        angle = atan2(right_shoulder.y - left_shoulder.y,
+                      right_shoulder.x - left_shoulder.x)
+
+    Returns 0.0 if shoulder keypoints are missing.
+    """
+    try:
+        ls = _pt(keypoints, "LEFT_SHOULDER")
+        rs = _pt(keypoints, "RIGHT_SHOULDER")
+    except KeyError:
+        return 0.0
+    return float(np.arctan2(rs[1] - ls[1], rs[0] - ls[0]))
+
+
+def normalize_keypoints(keypoints: list) -> list:
+    """
+    Scale all keypoints so the torso length (shoulder-mid → hip-mid) equals 1.
+
+    Removes size differences — a small drawing and a large photo of the same
+    pose will have identical normalized coordinates.
+
+    Call after center_keypoints() and rotate_keypoints() for best results.
+
+    Args:
+        keypoints: original keypoint list (not modified)
+
+    Returns:
+        New keypoint list scaled to torso-length = 1.
+        Returns original list unchanged if torso is degenerate (< 1e-3).
+    """
+    try:
+        th = _torso_height(keypoints)
+    except KeyError:
+        return keypoints
+
+    if th < 1e-3:
+        return keypoints
+
+    scale  = 1.0 / th
+    kp_map = _kp_list_to_map(keypoints)
+    scaled = {name: pt * scale for name, pt in kp_map.items()}
+    return _map_to_kp_list(scaled, keypoints)
+
+
+def prepare_for_comparison(keypoints: list) -> list:
+    """
+    Apply the full normalization pipeline in the correct order:
+
+        1. center    — translate hip-mid to origin
+        2. rotate    — cancel shoulder tilt (each pose uses its own angle)
+        3. normalize — scale torso to length 1
+
+    Rotation is applied before scaling so the angle is computed on
+    centered, unscaled coordinates (more numerically stable).
+
+    The original keypoints list is never modified.
+
+    Args:
+        keypoints: raw keypoint list
+
+    Returns:
+        Centered, rotation-aligned, normalized keypoint list.
+    """
+    kp    = center_keypoints(keypoints)          # step 1: translate
+    angle = _shoulder_angle(kp)                  # step 2a: measure tilt on centered pose
+    kp    = rotate_keypoints(kp, angle)          # step 2b: cancel tilt
+    kp    = normalize_keypoints(kp)              # step 3: scale
+    return kp
+
+
+# ---------------------------------------------------------------------------
+# Pose completeness validation
+# ---------------------------------------------------------------------------
+
+# Joints required for a full-body comparison
+REQUIRED_JOINTS = [
+    "LEFT_SHOULDER", "RIGHT_SHOULDER",
+    "LEFT_HIP",      "RIGHT_HIP",
+    "LEFT_ELBOW",    "RIGHT_ELBOW",
+    "LEFT_KNEE",     "RIGHT_KNEE",
+]
+
+# Joints sufficient for upper-body-only comparison
+UPPER_BODY_JOINTS = [
+    "LEFT_SHOULDER", "RIGHT_SHOULDER",
+    "LEFT_ELBOW",    "RIGHT_ELBOW",
+    "LEFT_HIP",      "RIGHT_HIP",
+]
+
+# Minimum fraction of required joints that must be present
+COMPLETENESS_THRESHOLD = 0.60
+
+
+def check_pose_completeness(keypoints: list) -> dict:
+    """
+    Validate whether a keypoint set is complete enough for comparison.
+
+    Checks:
+        - Full body: ≥ 60% of REQUIRED_JOINTS present
+        - Upper body fallback: all UPPER_BODY_JOINTS present (legs missing)
+
+    Args:
+        keypoints: raw keypoint list from detect_keypoints()
+
+    Returns:
+        {
+            "is_complete":   bool,   # True if full-body threshold met
+            "is_upper_body": bool,   # True if only upper body is present
+            "present":       int,    # count of required joints found
+            "required":      int,    # total required joints
+            "ratio":         float,  # present / required
+            "missing":       list,   # names of missing required joints
+        }
+    """
+    detected_names = {k["name"] for k in keypoints}
+    present = [j for j in REQUIRED_JOINTS if j in detected_names]
+    missing = [j for j in REQUIRED_JOINTS if j not in detected_names]
+    ratio   = len(present) / len(REQUIRED_JOINTS)
+
+    is_complete   = ratio >= COMPLETENESS_THRESHOLD
+    is_upper_body = (
+        not is_complete
+        and all(j in detected_names for j in UPPER_BODY_JOINTS)
+    )
+
+    return {
+        "is_complete":   is_complete,
+        "is_upper_body": is_upper_body,
+        "present":       len(present),
+        "required":      len(REQUIRED_JOINTS),
+        "ratio":         round(ratio, 3),
+        "missing":       missing,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Pose type detection
+# ---------------------------------------------------------------------------
+
+# Landmark sets used to classify pose type
+_LEG_JOINTS  = {"LEFT_KNEE", "RIGHT_KNEE", "LEFT_ANKLE", "RIGHT_ANKLE"}
+_HIP_JOINTS  = {"LEFT_HIP",  "RIGHT_HIP"}
+_ARM_JOINTS  = {"LEFT_SHOULDER", "RIGHT_SHOULDER", "LEFT_ELBOW", "RIGHT_ELBOW"}
+_FACE_JOINTS = {"NOSE", "LEFT_EYE", "RIGHT_EYE", "LEFT_EAR", "RIGHT_EAR"}
+
+
+def detect_pose_type(keypoints: list) -> dict:
+    """
+    Classify the pose captured in a keypoint set.
+
+    Rules (evaluated in priority order):
+        "full_body"  — hips + at least one knee + at least one ankle detected
+        "upper_body" — shoulders + elbows detected, but no leg joints
+        "face"       — only face landmarks present (no shoulders/hips)
+        "unknown"    — none of the above patterns match
+
+    Args:
+        keypoints: raw keypoint list from detect_keypoints()
+
+    Returns:
+        {
+            "pose_type": "full_body" | "upper_body" | "face" | "unknown",
+            "has_legs":        bool,
+            "has_upper_body":  bool,
+            "has_face_only":   bool,
+        }
+    """
+    names = {k["name"] for k in keypoints}
+
+    has_hips       = bool(_HIP_JOINTS  & names)
+    has_legs       = bool(_LEG_JOINTS  & names)
+    has_upper_body = len(_ARM_JOINTS   & names) >= 3   # at least 3 of 4 arm joints
+    has_face_only  = bool(_FACE_JOINTS & names) and not has_hips and not has_upper_body
+
+    if has_hips and has_legs:
+        pose_type = "full_body"
+    elif has_upper_body and not has_legs:
+        pose_type = "upper_body"
+    elif has_face_only:
+        pose_type = "face"
+    else:
+        pose_type = "unknown"
+
+    return {
+        "pose_type":       pose_type,
+        "has_legs":        has_legs,
+        "has_upper_body":  has_upper_body,
+        "has_face_only":   has_face_only,
+    }
+
+
+# Pose types that are compatible with each other for comparison
+_COMPATIBLE_TYPES = {
+    frozenset({"full_body", "full_body"}),
+    frozenset({"upper_body", "upper_body"}),
+}
+
+
+def check_pose_type_compatibility(ref_type: str, draw_type: str) -> dict:
+    """
+    Determine whether two pose types can be meaningfully compared.
+
+    Compatible pairs:
+        full_body  vs full_body   → full comparison
+        upper_body vs upper_body  → upper-body comparison
+    Incompatible:
+        anything else             → mismatch error
+
+    Args:
+        ref_type:  pose_type string from detect_pose_type() for the reference
+        draw_type: pose_type string from detect_pose_type() for the drawing
+
+    Returns:
+        {
+            "compatible":    bool,
+            "comparison_mode": "full_body" | "upper_body" | None,
+            "error":         str | None,   # human-readable mismatch message
+        }
+    """
+    pair = frozenset({ref_type, draw_type})
+
+    if ref_type == "full_body" and draw_type == "full_body":
+        return {"compatible": True,  "comparison_mode": "full_body",  "error": None}
+    if ref_type == "upper_body" and draw_type == "upper_body":
+        return {"compatible": True,  "comparison_mode": "upper_body", "error": None}
+
+    # Build a readable label for each type
+    label = {"full_body": "full body", "upper_body": "upper body",
+             "face": "face only", "unknown": "unknown"}
+    ref_label  = label.get(ref_type,  ref_type)
+    draw_label = label.get(draw_type, draw_type)
+
+    # Special case: face images should never be compared
+    if "face" in pair:
+        error = (
+            f"Pose type mismatch: reference is {ref_label}, drawing is {draw_label}. "
+            "Face-only images cannot be used for pose comparison."
+        )
+    else:
+        error = (
+            f"Pose type mismatch: reference is {ref_label}, drawing is {draw_label}. "
+            "Please upload similar types of images (e.g., full body vs full body)."
+        )
+
+    return {"compatible": False, "comparison_mode": None, "error": error}
+
+
+
+    """
+    Compare limb lengths against ideal human anatomical ratios.
+
+    Ratios are expressed relative to torso height (shoulder-mid → hip-mid),
+    which corresponds to roughly 3 head-units in the classical 7.5-head canon.
+
+    Returns:
+        {
+            "torso_height": float,
+            "ratios": {
+                "upper_arm_left":  float,
+                "upper_arm_right": float,
+                "lower_arm_left":  float,
+                "lower_arm_right": float,
+                "upper_leg_left":  float,
+                "upper_leg_right": float,
+                "lower_leg_left":  float,
+                "lower_leg_right": float,
+            },
+            "ideal_ranges": { limb_key: [lo, hi] }
+        }
+    """
+    th = _torso_height(keypoints)
+    if th < 1e-3:
+        return {"torso_height": 0, "ratios": {}, "ideal_ranges": {}}
+
+    ls = _pt(keypoints, "LEFT_SHOULDER");  rs = _pt(keypoints, "RIGHT_SHOULDER")
+    le = _pt(keypoints, "LEFT_ELBOW");     re = _pt(keypoints, "RIGHT_ELBOW")
+    lw = _pt(keypoints, "LEFT_WRIST");     rw = _pt(keypoints, "RIGHT_WRIST")
+    lh = _pt(keypoints, "LEFT_HIP");       rh = _pt(keypoints, "RIGHT_HIP")
+    lk = _pt(keypoints, "LEFT_KNEE");      rk = _pt(keypoints, "RIGHT_KNEE")
+    la = _pt(keypoints, "LEFT_ANKLE");     ra = _pt(keypoints, "RIGHT_ANKLE")
+
+    ratios = {
+        "upper_arm_left":  distance(ls, le) / th,
+        "upper_arm_right": distance(rs, re) / th,
+        "lower_arm_left":  distance(le, lw) / th,
+        "lower_arm_right": distance(re, rw) / th,
+        "upper_leg_left":  distance(lh, lk) / th,
+        "upper_leg_right": distance(rh, rk) / th,
+        "lower_leg_left":  distance(lk, la) / th,
+        "lower_leg_right": distance(rk, ra) / th,
+    }
+
+    # Map each measured limb to its ideal range key
+    ideal_ranges = {
+        "upper_arm_left":  list(IDEAL_PROPORTIONS["upper_arm"]),
+        "upper_arm_right": list(IDEAL_PROPORTIONS["upper_arm"]),
+        "lower_arm_left":  list(IDEAL_PROPORTIONS["lower_arm"]),
+        "lower_arm_right": list(IDEAL_PROPORTIONS["lower_arm"]),
+        "upper_leg_left":  list(IDEAL_PROPORTIONS["upper_leg"]),
+        "upper_leg_right": list(IDEAL_PROPORTIONS["upper_leg"]),
+        "lower_leg_left":  list(IDEAL_PROPORTIONS["lower_leg"]),
+        "lower_leg_right": list(IDEAL_PROPORTIONS["lower_leg"]),
+    }
+
+    return {
+        "torso_height": round(th, 2),
+        "ratios":       {k: round(v, 4) for k, v in ratios.items()},
+        "ideal_ranges": ideal_ranges,
+    }
+
+
+# ---------------------------------------------------------------------------
+# check_symmetry
+# ---------------------------------------------------------------------------
+
+def check_symmetry(keypoints: list) -> dict:
+    """
+    Compare left and right body halves.
+    Each value is the absolute difference normalised by torso height.
+    A value of 0.0 means perfect symmetry; > SYMMETRY_TOLERANCE flags an issue.
+
+    Returns:
+        {
+            "shoulder_height": float,
+            "hip_height":      float,
+            "arm_length":      float,
+            "leg_length":      float,
+        }
+    """
+    th = _torso_height(keypoints)
+    if th < 1e-3:
+        return {}
+
+    ls = _pt(keypoints, "LEFT_SHOULDER");  rs = _pt(keypoints, "RIGHT_SHOULDER")
+    le = _pt(keypoints, "LEFT_ELBOW");     re = _pt(keypoints, "RIGHT_ELBOW")
+    lw = _pt(keypoints, "LEFT_WRIST");     rw = _pt(keypoints, "RIGHT_WRIST")
+    lh = _pt(keypoints, "LEFT_HIP");       rh = _pt(keypoints, "RIGHT_HIP")
+    lk = _pt(keypoints, "LEFT_KNEE");      rk = _pt(keypoints, "RIGHT_KNEE")
+    la = _pt(keypoints, "LEFT_ANKLE");     ra = _pt(keypoints, "RIGHT_ANKLE")
+
+    left_arm  = distance(ls, le) + distance(le, lw)
+    right_arm = distance(rs, re) + distance(re, rw)
+    left_leg  = distance(lh, lk) + distance(lk, la)
+    right_leg = distance(rh, rk) + distance(rk, ra)
+
+    return {
+        "shoulder_height": round(abs(ls[1] - rs[1]) / th, 4),
+        "hip_height":      round(abs(lh[1] - rh[1]) / th, 4),
+        "arm_length":      round(abs(left_arm - right_arm) / th, 4),
+        "leg_length":      round(abs(left_leg - right_leg) / th, 4),
+    }
+
+
+# ---------------------------------------------------------------------------
+# detect_errors
+# ---------------------------------------------------------------------------
+
+def detect_errors(keypoints: list) -> list:
+    """
+    Run all checks and return a list of error dicts for any deviation that
+    exceeds the defined thresholds.
+
+    Returns:
+        [ { "joint": str, "message": str }, ... ]
+    """
+    errors = []
+
+    try:
+        th = _torso_height(keypoints)
+        if th < 1e-3:
+            return [{"joint": "torso", "message": "Torso too small to analyse — pose may be incomplete"}]
+
+        ls = _pt(keypoints, "LEFT_SHOULDER");  rs = _pt(keypoints, "RIGHT_SHOULDER")
+        le = _pt(keypoints, "LEFT_ELBOW");     re = _pt(keypoints, "RIGHT_ELBOW")
+        lw = _pt(keypoints, "LEFT_WRIST");     rw = _pt(keypoints, "RIGHT_WRIST")
+        lh = _pt(keypoints, "LEFT_HIP");       rh = _pt(keypoints, "RIGHT_HIP")
+        lk = _pt(keypoints, "LEFT_KNEE");      rk = _pt(keypoints, "RIGHT_KNEE")
+        la = _pt(keypoints, "LEFT_ANKLE");     ra = _pt(keypoints, "RIGHT_ANKLE")
+
+        shoulder_mid = (ls + rs) / 2
+        hip_mid      = (lh + rh) / 2
+
+        # ── Joint angles ────────────────────────────────────────────────────
+        joint_angles = {
+            "left_elbow":  calculate_angle(ls, le, lw),
+            "right_elbow": calculate_angle(rs, re, rw),
+            "left_knee":   calculate_angle(lh, lk, la),
+            "right_knee":  calculate_angle(rh, rk, ra),
+        }
+
+        # Torso lean: angle between torso vector and upward vertical [0, -1]
+        torso_vec  = shoulder_mid - hip_mid
+        vertical   = np.array([0.0, -1.0])
+        torso_lean = float(np.degrees(
+            np.arccos(np.clip(
+                np.dot(torso_vec, vertical) / (np.linalg.norm(torso_vec) + 1e-8),
+                -1.0, 1.0
+            ))
+        ))
+        joint_angles["torso_lean"] = torso_lean
+
+        for joint, angle in joint_angles.items():
+            lo, hi = ANGLE_RANGES[joint]
+            if not (lo <= angle <= hi):
+                errors.append({
+                    "joint":   joint,
+                    "message": (
+                        f"{joint.replace('_', ' ').title()} angle {angle:.1f}° "
+                        f"is outside the ideal range [{lo}°–{hi}°]"
+                    ),
+                })
+
+        # ── Proportions ─────────────────────────────────────────────────────
+        prop_data = check_proportions(keypoints)
+        for limb, ratio in prop_data["ratios"].items():
+            lo, hi = prop_data["ideal_ranges"][limb]
+            if not (lo <= ratio <= hi):
+                errors.append({
+                    "joint":   limb,
+                    "message": (
+                        f"{limb.replace('_', ' ').title()} proportion {ratio:.2f} "
+                        f"is outside the ideal range [{lo}–{hi}] relative to torso"
+                    ),
+                })
+
+        # ── Symmetry ────────────────────────────────────────────────────────
+        sym_data = check_symmetry(keypoints)
+        for part, diff in sym_data.items():
+            if diff > SYMMETRY_TOLERANCE:
+                errors.append({
+                    "joint":   part,
+                    "message": (
+                        f"Asymmetry in {part.replace('_', ' ')}: "
+                        f"{diff * 100:.1f}% difference (threshold {SYMMETRY_TOLERANCE * 100:.0f}%)"
+                    ),
+                })
+
+        # ── Center of gravity ───────────────────────────────────────────────
+        segments = [shoulder_mid, hip_mid, (lk + rk) / 2, (la + ra) / 2]
+        weights  = [0.40, 0.35, 0.15, 0.10]
+        cog      = sum(w * s for w, s in zip(weights, segments))
+        ankle_mid_x = (la[0] + ra[0]) / 2
+        hip_width   = abs(lh[0] - rh[0])
+
+        if abs(cog[0] - ankle_mid_x) > hip_width * 0.5:
+            errors.append({
+                "joint":   "center_of_gravity",
+                "message": "Center of gravity is off-balance relative to the base of support",
+            })
+
+    except KeyError as e:
+        errors.append({"joint": "unknown", "message": f"Missing keypoint: {e}"})
+
+    return errors
+
+
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
+
+def analyze(keypoints: list, image_width: int = 0, image_height: int = 0) -> dict:
+    """
+    Run the full analysis pipeline and return a structured result.
+
+    Returns:
+        {
+            "angles":      { joint: float },
+            "proportions": { limb: float },
+            "symmetry":    { part: float },
+            "errors":      [ { "joint": str, "message": str } ],
+            "center_of_gravity": { "x": float, "y": float, "balanced": bool }
+        }
+    """
+    errors = []
+    angles = {}
+    cog    = {}
+
+    try:
+        ls = _pt(keypoints, "LEFT_SHOULDER");  rs = _pt(keypoints, "RIGHT_SHOULDER")
+        le = _pt(keypoints, "LEFT_ELBOW");     re = _pt(keypoints, "RIGHT_ELBOW")
+        lw = _pt(keypoints, "LEFT_WRIST");     rw = _pt(keypoints, "RIGHT_WRIST")
+        lh = _pt(keypoints, "LEFT_HIP");       rh = _pt(keypoints, "RIGHT_HIP")
+        lk = _pt(keypoints, "LEFT_KNEE");      rk = _pt(keypoints, "RIGHT_KNEE")
+        la = _pt(keypoints, "LEFT_ANKLE");     ra = _pt(keypoints, "RIGHT_ANKLE")
+
+        shoulder_mid = (ls + rs) / 2
+        hip_mid      = (lh + rh) / 2
+
+        # Joint angles
+        angles["left_elbow"]  = round(calculate_angle(ls, le, lw), 2)
+        angles["right_elbow"] = round(calculate_angle(rs, re, rw), 2)
+        angles["left_knee"]   = round(calculate_angle(lh, lk, la), 2)
+        angles["right_knee"]  = round(calculate_angle(rh, rk, ra), 2)
+
+        torso_vec  = shoulder_mid - hip_mid
+        vertical   = np.array([0.0, -1.0])
+        angles["torso_lean"] = round(float(np.degrees(
+            np.arccos(np.clip(
+                np.dot(torso_vec, vertical) / (np.linalg.norm(torso_vec) + 1e-8),
+                -1.0, 1.0
+            ))
+        )), 2)
+
+        # Center of gravity
+        segments = [shoulder_mid, hip_mid, (lk + rk) / 2, (la + ra) / 2]
+        weights  = [0.40, 0.35, 0.15, 0.10]
+        cog_pt   = sum(w * s for w, s in zip(weights, segments))
+        ankle_mid_x = (la[0] + ra[0]) / 2
+        hip_width   = abs(lh[0] - rh[0])
+        cog = {
+            "x":        round(float(cog_pt[0]), 2),
+            "y":        round(float(cog_pt[1]), 2),
+            "balanced": bool(abs(cog_pt[0] - ankle_mid_x) <= hip_width * 0.5),
+        }
+
+        errors = detect_errors(keypoints)
+
+    except KeyError as e:
+        errors = [{"joint": "unknown", "message": f"Missing keypoint: {e}"}]
+
+    prop_data = {}
+    sym_data  = {}
+    try:
+        prop_data = check_proportions(keypoints).get("ratios", {})
+        sym_data  = check_symmetry(keypoints)
+    except Exception:
+        pass
+
+    return {
+        "angles":            angles,
+        "proportions":       prop_data,
+        "symmetry":          sym_data,
+        "errors":            errors,
+        "center_of_gravity": cog,
+    }
