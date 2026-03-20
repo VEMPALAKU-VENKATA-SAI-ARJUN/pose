@@ -181,9 +181,35 @@ def compare_pose():
     else:
         detection_case = 4
 
+    # ── Pose type detection + compatibility check ────────────────────────────
+    # Run BEFORE completeness — a face image should get a clear "type mismatch"
+    # error, not a confusing "incomplete pose" error.
+    ref_pose_type  = detect_pose_type(ref_kp,  ref_det["image_width"],  ref_det["image_height"])  if ref_kp  else {"pose_type": "unknown"}
+    draw_pose_type = detect_pose_type(draw_kp, draw_det["image_width"], draw_det["image_height"]) if draw_kp else {"pose_type": "unknown"}
+
+    type_compat = check_pose_type_compatibility(
+        ref_pose_type["pose_type"],
+        draw_pose_type["pose_type"],
+    )
+
+    if not type_compat["compatible"]:
+        return jsonify({
+            "error":                  type_compat["error"],
+            "pose_type_mismatch":     True,
+            "reference_pose_type":    ref_pose_type["pose_type"],
+            "drawing_pose_type":      draw_pose_type["pose_type"],
+            "reference_spread_ratio": ref_pose_type.get("spread_ratio", 0),
+            "drawing_spread_ratio":   draw_pose_type.get("spread_ratio", 0),
+            "detection_case":         detection_case,
+            "reference_detected":     ref_detected,
+            "drawing_detected":       draw_detected,
+            "reference_confidence":   ref_det.get("confidence", 0.0),
+            "drawing_confidence":     draw_det.get("confidence", 0.0),
+        }), 422
+
     # ── Completeness validation ───────────────────────────────────────────────
-    # Only run when both poses were detected (Cases 1–3 with keypoints present).
-    # Upper-body-only mode is allowed; anything below that threshold is rejected.
+    # Only runs when pose types are compatible — checks that enough joints are
+    # present for a meaningful comparison.
     ref_completeness  = check_pose_completeness(ref_kp)  if ref_kp  else None
     draw_completeness = check_pose_completeness(draw_kp) if draw_kp else None
 
@@ -191,8 +217,6 @@ def compare_pose():
     draw_upper_body = draw_completeness and draw_completeness["is_upper_body"]
     upper_body_mode = ref_upper_body or draw_upper_body
 
-    # Reject if either detected pose is below the completeness threshold
-    # and is NOT salvageable as upper-body-only.
     ref_incomplete  = (
         ref_completeness is not None
         and not ref_completeness["is_complete"]
@@ -213,36 +237,14 @@ def compare_pose():
                 "Pose mismatch: one or more images do not contain a full body pose. "
                 "Please upload full body images for accurate comparison."
             ),
-            "incomplete_images":     which,
+            "incomplete_images":       which,
             "reference_completeness":  ref_completeness,
             "drawing_completeness":    draw_completeness,
-            "detection_case":          detection_case if ref_detected or draw_detected else 4,
+            "detection_case":          detection_case,
             "reference_detected":      ref_detected,
             "drawing_detected":        draw_detected,
             "reference_confidence":    ref_det.get("confidence", 0.0),
             "drawing_confidence":      draw_det.get("confidence", 0.0),
-        }), 422
-
-    # ── Pose type detection + compatibility check ─────────────────────────────
-    ref_pose_type  = detect_pose_type(ref_kp)  if ref_kp  else {"pose_type": "unknown"}
-    draw_pose_type = detect_pose_type(draw_kp) if draw_kp else {"pose_type": "unknown"}
-
-    type_compat = check_pose_type_compatibility(
-        ref_pose_type["pose_type"],
-        draw_pose_type["pose_type"],
-    )
-
-    if not type_compat["compatible"]:
-        return jsonify({
-            "error":                  type_compat["error"],
-            "pose_type_mismatch":     True,
-            "reference_pose_type":    ref_pose_type["pose_type"],
-            "drawing_pose_type":      draw_pose_type["pose_type"],
-            "detection_case":         detection_case,
-            "reference_detected":     ref_detected,
-            "drawing_detected":       draw_detected,
-            "reference_confidence":   ref_det.get("confidence", 0.0),
-            "drawing_confidence":     draw_det.get("confidence", 0.0),
         }), 422
 
 

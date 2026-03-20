@@ -347,55 +347,113 @@ def check_pose_completeness(keypoints: list) -> dict:
 # Pose type detection
 # ---------------------------------------------------------------------------
 
+import logging as _logging
+_pose_log = _logging.getLogger("pose_type")
+
 # Landmark sets used to classify pose type
 _LEG_JOINTS  = {"LEFT_KNEE", "RIGHT_KNEE", "LEFT_ANKLE", "RIGHT_ANKLE"}
 _HIP_JOINTS  = {"LEFT_HIP",  "RIGHT_HIP"}
 _ARM_JOINTS  = {"LEFT_SHOULDER", "RIGHT_SHOULDER", "LEFT_ELBOW", "RIGHT_ELBOW"}
 _FACE_JOINTS = {"NOSE", "LEFT_EYE", "RIGHT_EYE", "LEFT_EAR", "RIGHT_EAR"}
 
+# Spatial spread threshold: if all keypoints span less than this fraction of
+# the image height AND no hips/legs are present, treat as a face crop.
+_FACE_SPREAD_THRESHOLD = 0.35
 
-def detect_pose_type(keypoints: list) -> dict:
+# Minimum per-keypoint visibility score to count a landmark as reliably detected.
+# Keypoints below this are treated as absent for classification purposes.
+_JOINT_SCORE_THRESHOLD = 0.50
+
+
+def detect_pose_type(
+    keypoints: list,
+    image_width: int = 0,
+    image_height: int = 0,
+) -> dict:
     """
     Classify the pose captured in a keypoint set.
 
-    Rules (evaluated in priority order):
-        "full_body"  — hips + at least one knee + at least one ankle detected
-        "upper_body" — shoulders + elbows detected, but no leg joints
-        "face"       — only face landmarks present (no shoulders/hips)
-        "unknown"    — none of the above patterns match
+    Priority order (first match wins):
+        1. "face"       — keypoints span < 35% of image height AND no hips/legs,
+                          OR only face landmarks pass the score threshold
+        2. "full_body"  — hips + at least one leg joint detected (score ≥ 0.5)
+        3. "upper_body" — ≥3 arm joints AND hips present, but no leg joints
+        4. "unknown"    — none of the above
+
+    Score filtering: landmarks with visibility < 0.5 are treated as absent.
+    This prevents MediaPipe's hallucinated body landmarks on face-crop images
+    from triggering false upper_body or full_body classifications.
 
     Args:
-        keypoints: raw keypoint list from detect_keypoints()
+        keypoints:     raw keypoint list from detect_keypoints()
+        image_width:   original image width in pixels  (0 = unknown)
+        image_height:  original image height in pixels (0 = unknown)
 
     Returns:
         {
-            "pose_type": "full_body" | "upper_body" | "face" | "unknown",
-            "has_legs":        bool,
-            "has_upper_body":  bool,
-            "has_face_only":   bool,
+            "pose_type":      "full_body" | "upper_body" | "face" | "unknown",
+            "has_legs":       bool,
+            "has_upper_body": bool,
+            "has_face_only":  bool,
+            "spread_ratio":   float,
         }
     """
-    names = {k["name"] for k in keypoints}
+    # Build two name sets: all detected, and only high-confidence ones
+    all_names   = {k["name"] for k in keypoints}
+    conf_names  = {k["name"] for k in keypoints if k.get("score", 1.0) >= _JOINT_SCORE_THRESHOLD}
 
-    has_hips       = bool(_HIP_JOINTS  & names)
-    has_legs       = bool(_LEG_JOINTS  & names)
-    has_upper_body = len(_ARM_JOINTS   & names) >= 3   # at least 3 of 4 arm joints
-    has_face_only  = bool(_FACE_JOINTS & names) and not has_hips and not has_upper_body
+    # Use high-confidence names for body-part decisions
+    has_hips       = bool(_HIP_JOINTS & conf_names)
+    has_legs       = bool(_LEG_JOINTS & conf_names)
+    has_upper_body = len(_ARM_JOINTS & conf_names) >= 3 and has_hips
 
-    if has_hips and has_legs:
+    # ── Spatial spread (uses all keypoints for bbox, not just confident ones) ─
+    spread_ratio = 0.0
+    if image_height and image_height > 0 and keypoints:
+        y_values     = [kp["y"] for kp in keypoints]
+        bbox_height  = max(y_values) - min(y_values)
+        spread_ratio = bbox_height / image_height
+
+    is_face_spread = (
+        spread_ratio > 0
+        and spread_ratio < _FACE_SPREAD_THRESHOLD
+        and not has_hips
+        and not has_legs
+    )
+    is_face_landmarks = (
+        bool(_FACE_JOINTS & conf_names)
+        and not has_hips
+        and not has_upper_body
+    )
+    has_face_only = is_face_spread or is_face_landmarks
+
+    # ── Priority classification ───────────────────────────────────────────────
+    if has_face_only:
+        pose_type = "face"
+    elif has_hips and has_legs:
         pose_type = "full_body"
     elif has_upper_body and not has_legs:
         pose_type = "upper_body"
-    elif has_face_only:
-        pose_type = "face"
     else:
         pose_type = "unknown"
 
+    _pose_log.debug(
+        "detect_pose_type | total_kp=%d conf_kp=%d conf_names=%s | "
+        "spread_ratio=%.3f image_h=%d | "
+        "has_hips=%s has_legs=%s has_upper_body=%s has_face_only=%s | "
+        "→ pose_type=%s",
+        len(keypoints), len(conf_names), sorted(conf_names),
+        spread_ratio, image_height,
+        has_hips, has_legs, has_upper_body, has_face_only,
+        pose_type,
+    )
+
     return {
-        "pose_type":       pose_type,
-        "has_legs":        has_legs,
-        "has_upper_body":  has_upper_body,
-        "has_face_only":   has_face_only,
+        "pose_type":      pose_type,
+        "has_legs":       has_legs,
+        "has_upper_body": has_upper_body,
+        "has_face_only":  has_face_only,
+        "spread_ratio":   round(spread_ratio, 4),
     }
 
 
@@ -455,66 +513,52 @@ def check_pose_type_compatibility(ref_type: str, draw_type: str) -> dict:
     return {"compatible": False, "comparison_mode": None, "error": error}
 
 
+# ---------------------------------------------------------------------------
+# check_proportions
+# ---------------------------------------------------------------------------
 
+def check_proportions(keypoints: list) -> dict:
     """
     Compare limb lengths against ideal human anatomical ratios.
-
-    Ratios are expressed relative to torso height (shoulder-mid → hip-mid),
-    which corresponds to roughly 3 head-units in the classical 7.5-head canon.
-
-    Returns:
-        {
-            "torso_height": float,
-            "ratios": {
-                "upper_arm_left":  float,
-                "upper_arm_right": float,
-                "lower_arm_left":  float,
-                "lower_arm_right": float,
-                "upper_leg_left":  float,
-                "upper_leg_right": float,
-                "lower_leg_left":  float,
-                "lower_leg_right": float,
-            },
-            "ideal_ranges": { limb_key: [lo, hi] }
-        }
+    Limbs whose endpoints are missing from the keypoint list are silently skipped.
     """
-    th = _torso_height(keypoints)
+    try:
+        th = _torso_height(keypoints)
+    except KeyError:
+        return {"torso_height": 0, "ratios": {}, "ideal_ranges": {}}
+
     if th < 1e-3:
         return {"torso_height": 0, "ratios": {}, "ideal_ranges": {}}
 
-    ls = _pt(keypoints, "LEFT_SHOULDER");  rs = _pt(keypoints, "RIGHT_SHOULDER")
-    le = _pt(keypoints, "LEFT_ELBOW");     re = _pt(keypoints, "RIGHT_ELBOW")
-    lw = _pt(keypoints, "LEFT_WRIST");     rw = _pt(keypoints, "RIGHT_WRIST")
-    lh = _pt(keypoints, "LEFT_HIP");       rh = _pt(keypoints, "RIGHT_HIP")
-    lk = _pt(keypoints, "LEFT_KNEE");      rk = _pt(keypoints, "RIGHT_KNEE")
-    la = _pt(keypoints, "LEFT_ANKLE");     ra = _pt(keypoints, "RIGHT_ANKLE")
+    def _safe_pt(name):
+        kp = next((k for k in keypoints if k["name"] == name), None)
+        return np.array([kp["x"], kp["y"]], dtype=float) if kp else None
 
-    ratios = {
-        "upper_arm_left":  distance(ls, le) / th,
-        "upper_arm_right": distance(rs, re) / th,
-        "lower_arm_left":  distance(le, lw) / th,
-        "lower_arm_right": distance(re, rw) / th,
-        "upper_leg_left":  distance(lh, lk) / th,
-        "upper_leg_right": distance(rh, rk) / th,
-        "lower_leg_left":  distance(lk, la) / th,
-        "lower_leg_right": distance(rk, ra) / th,
-    }
+    # Each entry: (ratio_key, ideal_range_key, point_a, point_b)
+    limb_defs = [
+        ("upper_arm_left",  "upper_arm", "LEFT_SHOULDER",  "LEFT_ELBOW"),
+        ("upper_arm_right", "upper_arm", "RIGHT_SHOULDER", "RIGHT_ELBOW"),
+        ("lower_arm_left",  "lower_arm", "LEFT_ELBOW",     "LEFT_WRIST"),
+        ("lower_arm_right", "lower_arm", "RIGHT_ELBOW",    "RIGHT_WRIST"),
+        ("upper_leg_left",  "upper_leg", "LEFT_HIP",       "LEFT_KNEE"),
+        ("upper_leg_right", "upper_leg", "RIGHT_HIP",      "RIGHT_KNEE"),
+        ("lower_leg_left",  "lower_leg", "LEFT_KNEE",      "LEFT_ANKLE"),
+        ("lower_leg_right", "lower_leg", "RIGHT_KNEE",     "RIGHT_ANKLE"),
+    ]
 
-    # Map each measured limb to its ideal range key
-    ideal_ranges = {
-        "upper_arm_left":  list(IDEAL_PROPORTIONS["upper_arm"]),
-        "upper_arm_right": list(IDEAL_PROPORTIONS["upper_arm"]),
-        "lower_arm_left":  list(IDEAL_PROPORTIONS["lower_arm"]),
-        "lower_arm_right": list(IDEAL_PROPORTIONS["lower_arm"]),
-        "upper_leg_left":  list(IDEAL_PROPORTIONS["upper_leg"]),
-        "upper_leg_right": list(IDEAL_PROPORTIONS["upper_leg"]),
-        "lower_leg_left":  list(IDEAL_PROPORTIONS["lower_leg"]),
-        "lower_leg_right": list(IDEAL_PROPORTIONS["lower_leg"]),
-    }
+    ratios       = {}
+    ideal_ranges = {}
+    for key, ideal_key, a_name, b_name in limb_defs:
+        a = _safe_pt(a_name)
+        b = _safe_pt(b_name)
+        if a is None or b is None:
+            continue   # skip limbs with missing endpoints
+        ratios[key]       = round(distance(a, b) / th, 4)
+        ideal_ranges[key] = list(IDEAL_PROPORTIONS[ideal_key])
 
     return {
         "torso_height": round(th, 2),
-        "ratios":       {k: round(v, 4) for k, v in ratios.items()},
+        "ratios":       ratios,
         "ideal_ranges": ideal_ranges,
     }
 
@@ -527,38 +571,44 @@ def check_symmetry(keypoints: list) -> dict:
     """
     Compare left and right body halves.
     Each value is the absolute difference normalised by torso height.
-    A value of 0.0 means perfect symmetry; > SYMMETRY_TOLERANCE flags an issue.
-
-    Returns:
-        {
-            "shoulder_height": float,
-            "hip_height":      float,
-            "arm_length":      float,
-            "leg_length":      float,
-        }
+    Parts whose joints are missing are silently skipped.
     """
-    th = _torso_height(keypoints)
+    try:
+        th = _torso_height(keypoints)
+    except KeyError:
+        return {}
     if th < 1e-3:
         return {}
 
-    ls = _pt(keypoints, "LEFT_SHOULDER");  rs = _pt(keypoints, "RIGHT_SHOULDER")
-    le = _pt(keypoints, "LEFT_ELBOW");     re = _pt(keypoints, "RIGHT_ELBOW")
-    lw = _pt(keypoints, "LEFT_WRIST");     rw = _pt(keypoints, "RIGHT_WRIST")
-    lh = _pt(keypoints, "LEFT_HIP");       rh = _pt(keypoints, "RIGHT_HIP")
-    lk = _pt(keypoints, "LEFT_KNEE");      rk = _pt(keypoints, "RIGHT_KNEE")
-    la = _pt(keypoints, "LEFT_ANKLE");     ra = _pt(keypoints, "RIGHT_ANKLE")
+    def _safe_pt(name):
+        kp = next((k for k in keypoints if k["name"] == name), None)
+        return np.array([kp["x"], kp["y"]], dtype=float) if kp else None
 
-    left_arm  = distance(ls, le) + distance(le, lw)
-    right_arm = distance(rs, re) + distance(re, rw)
-    left_leg  = distance(lh, lk) + distance(lk, la)
-    right_leg = distance(rh, rk) + distance(rk, ra)
+    result = {}
 
-    return {
-        "shoulder_height": round(abs(ls[1] - rs[1]) / th, 4),
-        "hip_height":      round(abs(lh[1] - rh[1]) / th, 4),
-        "arm_length":      round(abs(left_arm - right_arm) / th, 4),
-        "leg_length":      round(abs(left_leg - right_leg) / th, 4),
-    }
+    ls = _safe_pt("LEFT_SHOULDER");  rs = _safe_pt("RIGHT_SHOULDER")
+    lh = _safe_pt("LEFT_HIP");       rh = _safe_pt("RIGHT_HIP")
+    le = _safe_pt("LEFT_ELBOW");     re = _safe_pt("RIGHT_ELBOW")
+    lw = _safe_pt("LEFT_WRIST");     rw = _safe_pt("RIGHT_WRIST")
+    lk = _safe_pt("LEFT_KNEE");      rk = _safe_pt("RIGHT_KNEE")
+    la = _safe_pt("LEFT_ANKLE");     ra = _safe_pt("RIGHT_ANKLE")
+
+    if ls is not None and rs is not None:
+        result["shoulder_height"] = round(abs(ls[1] - rs[1]) / th, 4)
+    if lh is not None and rh is not None:
+        result["hip_height"] = round(abs(lh[1] - rh[1]) / th, 4)
+    if ls is not None and le is not None and lw is not None and \
+       rs is not None and re is not None and rw is not None:
+        left_arm  = distance(ls, le) + distance(le, lw)
+        right_arm = distance(rs, re) + distance(re, rw)
+        result["arm_length"] = round(abs(left_arm - right_arm) / th, 4)
+    if lh is not None and lk is not None and la is not None and \
+       rh is not None and rk is not None and ra is not None:
+        left_leg  = distance(lh, lk) + distance(lk, la)
+        right_leg = distance(rh, rk) + distance(rk, ra)
+        result["leg_length"] = round(abs(left_leg - right_leg) / th, 4)
+
+    return result
 
 
 # ---------------------------------------------------------------------------

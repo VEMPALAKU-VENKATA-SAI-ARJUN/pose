@@ -217,6 +217,15 @@ def detect_keypoints(image_bytes: bytes, force_preprocess: bool = False) -> dict
     if keypoints and confidence < CONFIDENCE_THRESHOLD:
         keypoints = []   # treat as not detected
 
+    # Filter individual keypoints below a per-landmark visibility floor.
+    # Sketches/drawings get a lower threshold (0.20) because MediaPipe returns
+    # lower visibility scores for non-photographic images overall.
+    # Photos get a stricter threshold (0.50) to drop hallucinated body landmarks
+    # on face-crop images where only face joints are genuinely visible.
+    if keypoints:
+        per_kp_threshold = 0.20 if sketch else 0.50
+        keypoints = [kp for kp in keypoints if kp.get("score", 0.0) >= per_kp_threshold]
+
     return {
         "keypoints":     keypoints,
         "image_width":   w,

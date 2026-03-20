@@ -66,6 +66,7 @@ function SingleViewer({
 }) {
   const canvasRef = useRef(null);
   const [jointIdx, setJointIdx] = useState(0);
+  const [showOverlay, setShowOverlay] = useState(true);
 
   useEffect(() => {
     if (!imageSrc) return;
@@ -77,11 +78,11 @@ function SingleViewer({
       canvas.width  = img.width;
       canvas.height = img.height;
       ctx.drawImage(img, 0, 0);
-      if (keypoints?.length) drawPoseSkeleton(ctx, keypoints, correctedKeypoints, errors);
-      if (centerOfGravity)   drawCoG(ctx, centerOfGravity);
-      if (manualMode)        drawManualHint(ctx, JOINT_NAMES[jointIdx % JOINT_NAMES.length]);
+      if (showOverlay && keypoints?.length) drawPoseSkeleton(ctx, keypoints, correctedKeypoints, errors);
+      if (showOverlay && centerOfGravity)   drawCoG(ctx, centerOfGravity);
+      if (manualMode)                       drawManualHint(ctx, JOINT_NAMES[jointIdx % JOINT_NAMES.length]);
     };
-  }, [imageSrc, keypoints, correctedKeypoints, errors, centerOfGravity, manualMode, jointIdx]);
+  }, [imageSrc, keypoints, correctedKeypoints, errors, centerOfGravity, manualMode, jointIdx, showOverlay]);
 
   const handleClick = (e) => {
     if (!manualMode || !onManualJoint) return;
@@ -108,6 +109,11 @@ function SingleViewer({
           {" "}({jointIdx + 1} / {JOINT_NAMES.length})
         </div>
       )}
+      {keypoints?.length > 0 && (
+        <button style={st.toggleBtn} onClick={() => setShowOverlay(v => !v)}>
+          {showOverlay ? "Hide" : "Show"} Skeleton
+        </button>
+      )}
       <canvas
         ref={canvasRef}
         style={{ ...st.canvas, cursor: manualMode ? "crosshair" : "default" }}
@@ -128,6 +134,7 @@ function CompareViewer({
 }) {
   const refCanvas  = useRef(null);
   const drawCanvas = useRef(null);
+  const [showOverlay, setShowOverlay] = useState(true);
 
   useEffect(() => {
     if (!refImageSrc) return;
@@ -139,14 +146,14 @@ function CompareViewer({
       canvas.width  = img.width;
       canvas.height = img.height;
       ctx.drawImage(img, 0, 0);
-      if (refKeypoints?.length) {
+      if (showOverlay && refKeypoints?.length) {
         const map   = arrayToMap(refKeypoints);
         const color = anatomyFallback ? C.amber : C.green;
         drawBones(ctx,  map, CONNECTIONS, color, LW, false);
         drawJoints(ctx, map, color, DOT, () => true);
       }
     };
-  }, [refImageSrc, refKeypoints, anatomyFallback]);
+  }, [refImageSrc, refKeypoints, anatomyFallback, showOverlay]);
 
   useEffect(() => {
     if (!drawImageSrc) return;
@@ -158,11 +165,11 @@ function CompareViewer({
       canvas.width  = img.width;
       canvas.height = img.height;
       ctx.drawImage(img, 0, 0);
-      if (drawKeypoints?.length) {
+      if (showOverlay && drawKeypoints?.length) {
         drawPoseSkeleton(ctx, drawKeypoints, correctedKeypoints, errors, usedFallback);
       }
     };
-  }, [drawImageSrc, drawKeypoints, correctedKeypoints, errors, usedFallback]);
+  }, [drawImageSrc, drawKeypoints, correctedKeypoints, errors, usedFallback, showOverlay]);
 
   // Per-panel status badges
   const refBadge  = (detectionCase === 3 || anatomyFallback)
@@ -172,21 +179,30 @@ function CompareViewer({
     ? "⚠ AI estimation mode (drawing not fully detected)"
     : null;
 
+  const hasAnyKeypoints = (refKeypoints?.length > 0) || (drawKeypoints?.length > 0);
+
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-      <div>
-        <p style={st.cap}>Reference</p>
-        {refBadge  && <div style={st.badgeAmber}>{refBadge}</div>}
-        {refImageSrc
-          ? <canvas ref={refCanvas}  style={st.canvas} />
-          : <Placeholder label="No reference image" />}
-      </div>
-      <div>
-        <p style={st.cap}>Your Drawing</p>
-        {drawBadge && <div style={st.badgeAmber}>{drawBadge}</div>}
-        {drawImageSrc
-          ? <canvas ref={drawCanvas} style={st.canvas} />
-          : <Placeholder label="No drawing image" />}
+    <div>
+      {hasAnyKeypoints && (
+        <button style={st.toggleBtn} onClick={() => setShowOverlay(v => !v)}>
+          {showOverlay ? "Hide" : "Show"} Skeleton Overlay
+        </button>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: hasAnyKeypoints ? 8 : 0 }}>
+        <div>
+          <p style={st.cap}>Reference</p>
+          {refBadge  && <div style={st.badgeAmber}>{refBadge}</div>}
+          {refImageSrc
+            ? <canvas ref={refCanvas}  style={st.canvas} />
+            : <Placeholder label="No reference image" />}
+        </div>
+        <div>
+          <p style={st.cap}>Your Drawing</p>
+          {drawBadge && <div style={st.badgeAmber}>{drawBadge}</div>}
+          {drawImageSrc
+            ? <canvas ref={drawCanvas} style={st.canvas} />
+            : <Placeholder label="No drawing image" />}
+        </div>
       </div>
     </div>
   );
@@ -296,4 +312,5 @@ const st = {
   cap:        { margin: "0 0 6px", fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: 1 },
   badgeAmber: { marginBottom: 6, padding: "5px 10px", background: "#451a03", border: "1px solid #92400e", borderRadius: 6, color: "#fbbf24", fontSize: 11, fontWeight: 500 },
   manualHint: { marginBottom: 6, padding: "5px 10px", background: "#1e1b4b", border: "1px solid #4338ca", borderRadius: 6, color: "#94a3b8", fontSize: 11 },
+  toggleBtn:  { marginBottom: 8, padding: "5px 12px", background: "#1e293b", border: "1px solid #334155", borderRadius: 6, color: "#94a3b8", fontSize: 11, cursor: "pointer", fontWeight: 500, transition: "all 0.15s" },
 };
