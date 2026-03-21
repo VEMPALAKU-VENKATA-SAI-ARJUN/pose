@@ -150,6 +150,11 @@ function ComparePanel({
         <div style={s.success}>✓ No major deviations from reference</div>
       )}
 
+      {/* Human-friendly suggestions */}
+      {comparison.suggestions?.length > 0 && (
+        <SuggestionsPanel suggestions={comparison.suggestions} />
+      )}
+
       {/* Toggle detailed diffs */}
       {(angle_diff || proportion_diff) && (
         <button style={s.toggle} onClick={() => setOpen(v => !v)}>
@@ -244,6 +249,28 @@ function DiffSection({ title, data, valueKey, unit }) {
 }
 
 
+// ── Suggestions panel ─────────────────────────────────────────────────────────
+
+function SuggestionsPanel({ suggestions }) {
+  const isSuccess = suggestions.length === 1 && suggestions[0].startsWith("Great work");
+  return (
+    <div style={s.suggestBox}>
+      <p style={s.suggestTitle}>
+        {isSuccess ? "✓ Suggestions" : "💡 How to improve"}
+      </p>
+      <ul style={s.suggestList}>
+        {suggestions.map((tip, i) => (
+          <li key={i} style={{ ...s.suggestItem, color: isSuccess ? "#4ade80" : "#e2e8f0" }}>
+            {!isSuccess && <span style={s.suggestBullet}>→</span>}
+            {tip}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+
 // ── Score widget ──────────────────────────────────────────────────────────────
 
 /**
@@ -307,6 +334,11 @@ const s = {
   mismatchDisabled:{ marginTop: 10, padding: "8px 12px", background: "#0f172a", border: "1px dashed #334155", borderRadius: 6, color: "#475569", fontSize: 11, fontStyle: "italic" },
   confRow:         { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" },
   success:         { color: "#4ade80", background: "#052e16", border: "1px solid #166534", borderRadius: 6, padding: "8px 12px" },
+  suggestBox:      { marginTop: 14, padding: "12px 14px", background: "#0f1f0f", border: "1px solid #166534", borderRadius: 8 },
+  suggestTitle:    { margin: "0 0 8px", fontSize: 10, color: "#4ade80", textTransform: "uppercase", letterSpacing: 1 },
+  suggestList:     { margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 7 },
+  suggestItem:     { fontSize: 12, lineHeight: 1.5, display: "flex", gap: 8, alignItems: "baseline" },
+  suggestBullet:   { color: "#4ade80", flexShrink: 0, fontWeight: "bold" },
   errorHeading: { color: "#f87171", margin: "0 0 10px", fontWeight: "bold", fontSize: 13 },
   list:         { margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 6 },
   listItem:     { display: "flex", gap: 8, alignItems: "baseline", lineHeight: 1.5 },

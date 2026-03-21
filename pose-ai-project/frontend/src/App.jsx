@@ -41,6 +41,9 @@ const initCompare = () => ({
   upperBodyMode: false,
   poseTypeMismatch: null,   // { refType, drawType } when types are incompatible
   comparisonMode: null,
+  normRef: null, normDraw: null, normCorrected: null,
+  refImageWidth: 0, refImageHeight: 0,
+  drawImageWidth: 0, drawImageHeight: 0,
 });
 
 
@@ -174,6 +177,13 @@ export default function App() {
         incompletePose:     null,
         poseTypeMismatch:   null,
         comparisonMode:     data.comparison_mode             || null,
+        normRef:            data.normalized_reference        || null,
+        normDraw:           data.normalized_drawing          || null,
+        normCorrected:      data.normalized_corrected        || null,
+        refImageWidth:      data.reference_image_width       || 0,
+        refImageHeight:     data.reference_image_height      || 0,
+        drawImageWidth:     data.drawing_image_width         || 0,
+        drawImageHeight:    data.drawing_image_height        || 0,
       });
     } catch {
       setApiError("Could not reach the server. Is the backend running on port 3001?");
@@ -316,6 +326,14 @@ export default function App() {
               usedFallback={compare.usedFallback}
               anatomyFallback={compare.anatomyFallback}
               detectionCase={compare.detectionCase}
+              normRef={compare.normRef}
+              normDraw={compare.normDraw}
+              normCorrected={compare.normCorrected}
+              flaggedJoints={compare.comparison?.flagged_joints}
+              refImageWidth={compare.refImageWidth}
+              refImageHeight={compare.refImageHeight}
+              drawImageWidth={compare.drawImageWidth}
+              drawImageHeight={compare.drawImageHeight}
             />
           </div>
           {compare.comparison && (

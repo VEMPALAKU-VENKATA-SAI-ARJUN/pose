@@ -142,8 +142,121 @@ def _compute_similarity_score(angle_diff: dict) -> float:
 
 
 # ---------------------------------------------------------------------------
-# compare_poses
+# Human-friendly suggestion generator
 # ---------------------------------------------------------------------------
+
+# Maps each joint to (too_small_message, too_large_message)
+# diff = draw_angle - ref_angle
+# diff < 0 → drawing is more bent (smaller angle) → "too small"
+# diff > 0 → drawing is more extended (larger angle) → "too large"
+_ANGLE_SUGGESTIONS = {
+    "left_elbow": (
+        "Straighten your left arm slightly — it's bent too much.",
+        "Bend your left elbow more to match the reference.",
+    ),
+    "right_elbow": (
+        "Straighten your right arm slightly — it's bent too much.",
+        "Bend your right elbow more to match the reference.",
+    ),
+    "left_knee": (
+        "Straighten your left leg a little — the knee is over-bent.",
+        "Bend your left knee more to match the reference pose.",
+    ),
+    "right_knee": (
+        "Straighten your right leg a little — the knee is over-bent.",
+        "Bend your right knee more to match the reference pose.",
+    ),
+    "left_shoulder": (
+        "Raise your left arm — it's positioned too low relative to the body.",
+        "Lower your left arm — it's raised too high relative to the body.",
+    ),
+    "right_shoulder": (
+        "Raise your right arm — it's positioned too low relative to the body.",
+        "Lower your right arm — it's raised too high relative to the body.",
+    ),
+}
+
+# Proportion suggestions: (too_short_message, too_long_message)
+_PROPORTION_SUGGESTIONS = {
+    "upper_arm_left":  ("Lengthen the left upper arm in your drawing.", "Shorten the left upper arm in your drawing."),
+    "upper_arm_right": ("Lengthen the right upper arm in your drawing.", "Shorten the right upper arm in your drawing."),
+    "lower_arm_left":  ("Lengthen the left forearm in your drawing.", "Shorten the left forearm in your drawing."),
+    "lower_arm_right": ("Lengthen the right forearm in your drawing.", "Shorten the right forearm in your drawing."),
+    "upper_leg_left":  ("Lengthen the left thigh in your drawing.", "Shorten the left thigh in your drawing."),
+    "upper_leg_right": ("Lengthen the right thigh in your drawing.", "Shorten the right thigh in your drawing."),
+    "lower_leg_left":  ("Lengthen the left shin in your drawing.", "Shorten the left shin in your drawing."),
+    "lower_leg_right": ("Lengthen the right shin in your drawing.", "Shorten the right shin in your drawing."),
+}
+
+_SYMMETRY_SUGGESTIONS = {
+    "shoulder_height": "Level your shoulders — one side is noticeably higher than the other.",
+    "hip_height":      "Level your hips — there's an uneven tilt between left and right.",
+    "arm_length":      "Check arm lengths — the left and right arms appear unequal.",
+    "leg_length":      "Check leg lengths — the left and right legs appear unequal.",
+}
+
+
+def _generate_suggestions(
+    angle_diff: dict,
+    proportion_diff: dict,
+    symmetry_diff: dict,
+    torso_lean_diff: dict,
+) -> list[str]:
+    """
+    Convert raw comparison metrics into plain-English correction suggestions.
+
+    Only flagged entries produce suggestions, so the list stays focused on
+    what actually needs fixing.  Suggestions are ordered by priority:
+        1. Angle corrections (most actionable)
+        2. Torso posture
+        3. Proportion adjustments
+        4. Symmetry notes
+
+    Returns:
+        List of human-readable suggestion strings.
+    """
+    suggestions = []
+
+    # 1. Angle-based suggestions
+    for joint, data in angle_diff.items():
+        if not data.get("flagged"):
+            continue
+        diff = data["diff"]   # draw - ref; negative = more bent, positive = more extended
+        msgs = _ANGLE_SUGGESTIONS.get(joint)
+        if msgs:
+            suggestions.append(msgs[0] if diff < 0 else msgs[1])
+
+    # 2. Torso lean
+    if torso_lean_diff:
+        lean_diff = torso_lean_diff.get("diff", 0)
+        if abs(lean_diff) > 10:
+            if lean_diff > 0:
+                suggestions.append("Reduce the forward lean — your torso is tilting more than the reference.")
+            else:
+                suggestions.append("Adjust your posture — your torso is more upright than the reference.")
+
+    # 3. Proportion suggestions
+    for limb, data in proportion_diff.items():
+        if not data.get("flagged"):
+            continue
+        diff_pct = data["diff_pct"]   # positive = drawing limb is longer
+        msgs = _PROPORTION_SUGGESTIONS.get(limb)
+        if msgs:
+            suggestions.append(msgs[1] if diff_pct > 0 else msgs[0])
+
+    # 4. Symmetry suggestions
+    for part, data in symmetry_diff.items():
+        if abs(data.get("diff", 0)) > 0.12:
+            msg = _SYMMETRY_SUGGESTIONS.get(part)
+            if msg:
+                suggestions.append(msg)
+
+    if not suggestions:
+        suggestions.append("Great work — your pose closely matches the reference!")
+
+    return suggestions
+
+
 
 def compare_poses(reference_kp: list, drawing_kp: list) -> dict:
     """
@@ -303,12 +416,17 @@ def compare_poses(reference_kp: list, drawing_kp: list) -> dict:
     # =========================================================================
     similarity_score = _compute_similarity_score(angle_diff)
 
+    suggestions = _generate_suggestions(
+        angle_diff, proportion_diff, symmetry_diff, torso_lean_diff
+    )
+
     return {
         "angle_diff":       angle_diff,
         "proportion_diff":  proportion_diff,
         "symmetry_diff":    symmetry_diff,
         "torso_lean_diff":  torso_lean_diff,
-        "major_errors":     major_errors,   # sorted: angles (1) → lengths (2) → symmetry (3)
+        "major_errors":     major_errors,
         "feedback":         feedback,
+        "suggestions":      suggestions,
         "similarity_score": similarity_score,
     }

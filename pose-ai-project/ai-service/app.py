@@ -17,7 +17,7 @@ CASE 4: ref=failed,    draw=failed    → hard error, return 422
 
 from flask import Flask, request, jsonify
 from pose_detection    import detect_keypoints
-from analysis_engine   import analyze, check_pose_completeness, detect_pose_type, check_pose_type_compatibility
+from analysis_engine   import analyze, check_pose_completeness, detect_pose_type, check_pose_type_compatibility, prepare_for_comparison
 from correction_engine import generate_corrected_pose
 from comparison_engine import compare_poses
 from fallback_engine   import estimate_pose_from_reference
@@ -297,6 +297,18 @@ def compare_pose():
         correction = {"corrected_keypoints": {}, "flagged_joints": [],
                       "corrections_applied": 0, "mode": "none"}
 
+    # ── Normalized keypoints for overlay alignment ────────────────────────────
+    # Normalized = center → rotate → scale (torso = 1), shared coordinate space.
+    # Used by the frontend OverlayCanvas for aligned skeleton comparison.
+    norm_ref      = prepare_for_comparison(ref_kp)  if ref_kp  else []
+    norm_draw     = prepare_for_comparison(draw_kp) if draw_kp else []
+    # corrected_keypoints is a dict {NAME: {x,y}} — convert to list first
+    corr_kp_list  = [
+        {"name": k, "x": v["x"], "y": v["y"], "score": 1.0}
+        for k, v in (correction.get("corrected_keypoints") or {}).items()
+    ]
+    norm_corrected = prepare_for_comparison(corr_kp_list) if corr_kp_list else []
+
     return jsonify({
         "reference_keypoints":   ref_kp,
         "drawing_keypoints":     draw_kp,
@@ -307,6 +319,9 @@ def compare_pose():
         "flagged_joints":        correction["flagged_joints"],
         "corrections_applied":   correction["corrections_applied"],
         "correction_mode":       correction["mode"],
+        "normalized_reference":  norm_ref,
+        "normalized_drawing":    norm_draw,
+        "normalized_corrected":  norm_corrected,
         "used_fallback":         used_fallback,
         "anatomy_fallback":      anatomy_fallback,
         "upper_body_mode":       upper_body_mode,
