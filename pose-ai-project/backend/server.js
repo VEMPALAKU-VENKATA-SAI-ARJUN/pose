@@ -124,6 +124,23 @@ app.post("/api/compare", (req, res) => {
 });
 
 
+// ── POST /api/recommend ───────────────────────────────────────────────────────
+
+app.post("/api/recommend", (req, res) => {
+  uploadSingle(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    if (!req.file) return res.status(400).json({ error: "No image file provided" });
+
+    await forwardToAI(res, "/recommend", (form) => {
+      form.append("file", req.file.buffer, {
+        filename:    req.file.originalname,
+        contentType: req.file.mimetype,
+      });
+    });
+  });
+});
+
+
 // ── Error handler ─────────────────────────────────────────────────────────────
 
 app.use((err, _req, res, _next) => {

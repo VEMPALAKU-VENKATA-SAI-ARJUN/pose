@@ -258,7 +258,7 @@ def _generate_suggestions(
 
 
 
-def compare_poses(reference_kp: list, drawing_kp: list) -> dict:
+def compare_poses(reference_kp: list, drawing_kp: list, dynamic_partial: bool = False) -> dict:
     """
     Compare a drawing pose against a reference pose.
 
@@ -271,8 +271,10 @@ def compare_poses(reference_kp: list, drawing_kp: list) -> dict:
         3. Symmetry      — tertiary, informational
 
     Args:
-        reference_kp: raw keypoints from the reference image
-        drawing_kp:   raw keypoints from the user's drawing
+        reference_kp:    raw keypoints from the reference image
+        drawing_kp:      raw keypoints from the user's drawing
+        dynamic_partial: if True, skip low-confidence joints and apply a
+                         0.85 reliability penalty to the similarity score
 
     Returns:
         {
@@ -284,6 +286,14 @@ def compare_poses(reference_kp: list, drawing_kp: list) -> dict:
             "feedback":        [ str ]
         }
     """
+    # ── Confidence filtering (dynamic partial mode) ───────────────────────────
+    # In partial mode, drop keypoints with score < 0.3 so low-confidence
+    # hallucinated joints don't corrupt angle/proportion calculations.
+    MIN_CONF = 0.3
+    if dynamic_partial:
+        reference_kp = [k for k in reference_kp if k.get("score", 1.0) >= MIN_CONF]
+        drawing_kp   = [k for k in drawing_kp   if k.get("score", 1.0) >= MIN_CONF]
+
     # ── Normalize ─────────────────────────────────────────────────────────────
     ref_norm  = prepare_for_comparison(reference_kp)
     draw_norm = prepare_for_comparison(drawing_kp)
@@ -416,6 +426,10 @@ def compare_poses(reference_kp: list, drawing_kp: list) -> dict:
     # =========================================================================
     similarity_score = _compute_similarity_score(angle_diff)
 
+    # Apply reliability penalty for dynamic/partial poses
+    if dynamic_partial:
+        similarity_score = round(similarity_score * 0.85, 1)
+
     suggestions = _generate_suggestions(
         angle_diff, proportion_diff, symmetry_diff, torso_lean_diff
     )
@@ -429,4 +443,5 @@ def compare_poses(reference_kp: list, drawing_kp: list) -> dict:
         "feedback":         feedback,
         "suggestions":      suggestions,
         "similarity_score": similarity_score,
+        "partial_mode":     dynamic_partial,
     }

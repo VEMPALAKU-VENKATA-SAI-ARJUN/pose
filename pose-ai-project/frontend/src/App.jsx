@@ -12,12 +12,14 @@
  */
 
 import { useState } from "react";
-import UploadPanel  from "./components/UploadPanel";
-import CanvasViewer from "./components/CanvasViewer";
-import ErrorPanel   from "./components/ErrorPanel";
+import UploadPanel    from "./components/UploadPanel";
+import CanvasViewer   from "./components/CanvasViewer";
+import ErrorPanel     from "./components/ErrorPanel";
+import RecommendPanel from "./components/RecommendPanel";
 
-const ANALYZE_URL = "/api/analyze";
-const COMPARE_URL = "/api/compare";
+const ANALYZE_URL  = "/api/analyze";
+const COMPARE_URL  = "/api/compare";
+const RECOMMEND_URL = "/api/recommend";
 
 // ── Initial state factories ───────────────────────────────────────────────────
 
@@ -39,7 +41,8 @@ const initCompare = () => ({
   similarityScore: null,
   incompletePose: null,
   upperBodyMode: false,
-  poseTypeMismatch: null,   // { refType, drawType } when types are incompatible
+  dynamicPartial: false,
+  poseTypeMismatch: null,
   comparisonMode: null,
   normRef: null, normDraw: null, normCorrected: null,
   refImageWidth: 0, refImageHeight: 0,
@@ -58,6 +61,8 @@ export default function App() {
   // Manual mode: user-placed keypoints override detected ones
   const [manualMode, setManualMode] = useState(false);
   const [manualKp,   setManualKp]   = useState([]);
+  // Recommendations
+  const [recs,       setRecs]       = useState({ data: null, loading: false, error: null });
 
   const hasResults = mode === "single"
     ? single.keypoints.length > 0
@@ -71,6 +76,25 @@ export default function App() {
     setCompare(initCompare());
     setManualMode(false);
     setManualKp([]);
+    setRecs({ data: null, loading: false, error: null });
+  };
+
+  // ── Recommendations helper ──────────────────────────────────────────────────
+  const fetchRecommendations = async (file) => {
+    setRecs({ data: null, loading: true, error: null });
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res  = await fetch(RECOMMEND_URL, { method: "POST", body: form });
+      const data = await res.json();
+      if (data.recommendations?.length) {
+        setRecs({ data: data.recommendations, loading: false, error: null });
+      } else {
+        setRecs({ data: null, loading: false, error: data.error || null });
+      }
+    } catch {
+      setRecs({ data: null, loading: false, error: "Could not load recommendations." });
+    }
   };
 
   // ── Single upload handler ───────────────────────────────────────────────────
@@ -102,6 +126,7 @@ export default function App() {
         symmetry:           analysis.symmetry                 || null,
         centerOfGravity:    analysis.center_of_gravity        || null,
       });
+      fetchRecommendations(file);
     } catch {
       setApiError("Could not reach the server. Is the backend running on port 3001?");
     } finally {
@@ -174,6 +199,7 @@ export default function App() {
         drawConfidence:     data.drawing_confidence          || 0,
         similarityScore:    data.comparison?.similarity_score ?? null,
         upperBodyMode:      data.upper_body_mode             || false,
+        dynamicPartial:     data.dynamic_partial             || false,
         incompletePose:     null,
         poseTypeMismatch:   null,
         comparisonMode:     data.comparison_mode             || null,
@@ -185,6 +211,7 @@ export default function App() {
         drawImageWidth:     data.drawing_image_width         || 0,
         drawImageHeight:    data.drawing_image_height        || 0,
       });
+      fetchRecommendations(drawFile);
     } catch {
       setApiError("Could not reach the server. Is the backend running on port 3001?");
     } finally {
@@ -310,6 +337,13 @@ export default function App() {
           )}
         </div>
       )}
+      {mode === "single" && hasResults && (
+        <RecommendPanel
+          recommendations={recs.data}
+          loading={recs.loading}
+          error={recs.error}
+        />
+      )}
 
       {/* ── Compare results ── */}
       {mode === "compare" && (compare.refImageSrc || compare.drawImageSrc) && (
@@ -351,11 +385,19 @@ export default function App() {
                 drawConfidence={compare.drawConfidence}
                 similarityScore={compare.similarityScore}
                 upperBodyMode={compare.upperBodyMode}
+                dynamicPartial={compare.dynamicPartial}
                 poseTypeMismatch={compare.poseTypeMismatch}
               />
             </div>
           )}
         </div>
+      )}
+      {mode === "compare" && compare.comparison && (
+        <RecommendPanel
+          recommendations={recs.data}
+          loading={recs.loading}
+          error={recs.error}
+        />
       )}
 
     </div>

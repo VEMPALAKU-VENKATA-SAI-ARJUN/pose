@@ -378,8 +378,109 @@ function drawImageSkeleton(ctx, keypoints, correctedKeypoints, errors, scaleX, s
 
   // Corrected skeleton (blue, dashed)
   if (Object.keys(corrMap).length > 0) {
-    drawBones(ctx,  corrMap, C.blue,    LW, true);
-    drawJoints(ctx, corrMap, C.blue,    DOT, () => true);
+    drawBones(ctx,  corrMap, C.blue, LW, true);
+    drawJoints(ctx, corrMap, C.blue, DOT, () => true);
+    // Correction arrows: flagged joints only, from current → corrected position
+    drawCorrectionArrows(ctx, origMap, corrMap, flagSet);
+  }
+}
+
+/**
+ * Draw directional arrows from each flagged joint's current position to its
+ * corrected position. Only drawn when the displacement is large enough to be
+ * meaningful (> MIN_ARROW_PX pixels).
+ *
+ * Visual design:
+ *   - Amber (#fbbf24) shaft with a glow pass underneath
+ *   - Filled arrowhead at the corrected end
+ *   - Small joint-name label offset perpendicular to the arrow
+ */
+function drawCorrectionArrows(ctx, origMap, corrMap, flagSet) {
+  const MIN_ARROW_PX  = 6;   // skip trivially small corrections
+  const ARROW_HEAD    = 10;  // arrowhead length in px
+  const ARROW_SPREAD  = 0.38; // arrowhead half-angle in radians (~22°)
+  const SHAFT_WIDTH   = 2;
+  const GLOW_WIDTH    = 6;
+  const COLOR         = "#fbbf24";
+  const GLOW_COLOR    = "rgba(251,191,36,0.3)";
+
+  for (const name of flagSet) {
+    const from = origMap[name];
+    const to   = corrMap[name];
+    if (!from || !to) continue;
+
+    const dx   = to.x - from.x;
+    const dy   = to.y - from.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < MIN_ARROW_PX) continue;
+
+    const angle = Math.atan2(dy, dx);
+
+    // Shorten shaft so it doesn't overlap the joint dots
+    const JOINT_OFFSET = DOT_E + 2;
+    const sx = from.x + Math.cos(angle) * JOINT_OFFSET;
+    const sy = from.y + Math.sin(angle) * JOINT_OFFSET;
+    const ex = to.x   - Math.cos(angle) * (ARROW_HEAD * 0.6);
+    const ey = to.y   - Math.sin(angle) * (ARROW_HEAD * 0.6);
+
+    ctx.save();
+    ctx.lineCap = "round";
+
+    // ── Glow pass ──────────────────────────────────────────────────────────
+    ctx.strokeStyle = GLOW_COLOR;
+    ctx.lineWidth   = GLOW_WIDTH;
+    ctx.shadowColor = COLOR;
+    ctx.shadowBlur  = 8;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // ── Shaft ──────────────────────────────────────────────────────────────
+    ctx.strokeStyle = COLOR;
+    ctx.lineWidth   = SHAFT_WIDTH;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+
+    // ── Arrowhead ──────────────────────────────────────────────────────────
+    ctx.fillStyle = COLOR;
+    ctx.beginPath();
+    ctx.moveTo(to.x, to.y);
+    ctx.lineTo(
+      to.x - ARROW_HEAD * Math.cos(angle - ARROW_SPREAD),
+      to.y - ARROW_HEAD * Math.sin(angle - ARROW_SPREAD),
+    );
+    ctx.lineTo(
+      to.x - ARROW_HEAD * Math.cos(angle + ARROW_SPREAD),
+      to.y - ARROW_HEAD * Math.sin(angle + ARROW_SPREAD),
+    );
+    ctx.closePath();
+    ctx.fill();
+
+    // ── Label ──────────────────────────────────────────────────────────────
+    // Offset perpendicular to the arrow direction so it doesn't overlap shaft
+    const LABEL_OFFSET = 12;
+    const perpX = -Math.sin(angle) * LABEL_OFFSET;
+    const perpY =  Math.cos(angle) * LABEL_OFFSET;
+    const midX  = (sx + ex) / 2 + perpX;
+    const midY  = (sy + ey) / 2 + perpY;
+    const label = name.replace(/_/g, " ").toLowerCase()
+      .replace(/\b\w/g, c => c.toUpperCase());  // Title Case
+
+    ctx.font      = "bold 9px 'Segoe UI', system-ui, sans-serif";
+    ctx.textAlign = "center";
+    // Dark backing for readability
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    const tw = ctx.measureText(label).width;
+    ctx.fillRect(midX - tw / 2 - 2, midY - 9, tw + 4, 12);
+    ctx.fillStyle = COLOR;
+    ctx.fillText(label, midX, midY);
+    ctx.textAlign = "left";
+
+    ctx.restore();
   }
 }
 

@@ -17,10 +17,11 @@ CASE 4: ref=failed,    draw=failed    → hard error, return 422
 
 from flask import Flask, request, jsonify
 from pose_detection    import detect_keypoints
-from analysis_engine   import analyze, check_pose_completeness, detect_pose_type, check_pose_type_compatibility, prepare_for_comparison
+from analysis_engine   import analyze, check_pose_completeness, detect_pose_type, check_pose_type_compatibility, prepare_for_comparison, detect_dynamic_partial
 from correction_engine import generate_corrected_pose
 from comparison_engine import compare_poses
 from fallback_engine   import estimate_pose_from_reference
+from recommender       import recommend
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024   # 10 MB
@@ -228,10 +229,21 @@ def compare_pose():
         and not draw_completeness["is_upper_body"]
     )
 
-    if ref_incomplete or draw_incomplete:
+    # ── Dynamic partial pose detection ───────────────────────────────────────
+    # If an incomplete pose has torso + at least one limb, treat it as a
+    # dynamic/artistic partial pose instead of rejecting it outright.
+    ref_dynamic  = ref_incomplete  and detect_dynamic_partial(ref_kp)
+    draw_dynamic = draw_incomplete and detect_dynamic_partial(draw_kp)
+    dynamic_partial = ref_dynamic or draw_dynamic
+
+    # Only hard-reject if incomplete AND not a dynamic partial pose
+    truly_incomplete_ref  = ref_incomplete  and not ref_dynamic
+    truly_incomplete_draw = draw_incomplete and not draw_dynamic
+
+    if truly_incomplete_ref or truly_incomplete_draw:
         which = []
-        if ref_incomplete:  which.append("reference")
-        if draw_incomplete: which.append("drawing")
+        if truly_incomplete_ref:  which.append("reference")
+        if truly_incomplete_draw: which.append("drawing")
         return jsonify({
             "error": (
                 "Pose mismatch: one or more images do not contain a full body pose. "
@@ -272,7 +284,7 @@ def compare_pose():
     # ── Comparison ────────────────────────────────────────────────────────────
     if ref_kp and draw_kp:
         # Cases 1 and 2 (with successful fallback)
-        comparison = compare_poses(ref_kp, draw_kp)
+        comparison = compare_poses(ref_kp, draw_kp, dynamic_partial=dynamic_partial)
         correction = generate_corrected_pose(draw_kp, reference_kp=ref_kp)
 
         if used_fallback:
@@ -325,6 +337,7 @@ def compare_pose():
         "used_fallback":         used_fallback,
         "anatomy_fallback":      anatomy_fallback,
         "upper_body_mode":       upper_body_mode,
+        "dynamic_partial":       dynamic_partial,
         "detection_case":        detection_case,
         "reference_pose_type":   ref_pose_type["pose_type"],
         "drawing_pose_type":     draw_pose_type["pose_type"],
@@ -345,6 +358,50 @@ def compare_pose():
 @app.errorhandler(413)
 def too_large(e):
     return jsonify({"error": "File too large. Maximum is 10 MB."}), 413
+
+
+# ── POST /recommend — reference pose recommender ──────────────────────────────
+
+@app.route("/recommend", methods=["POST"])
+def recommend_poses():
+    """
+    Accepts: multipart/form-data with field 'file' (the drawing/image)
+    Returns: top 5 similar reference poses ranked by cosine similarity
+
+    Response:
+        {
+            "recommendations": [
+                { "id", "label", "description", "category", "tags", "score" },
+                ...
+            ],
+            "pose_detected": bool,
+            "confidence": float
+        }
+    """
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+
+    detection, _ = _safe_detect(request.files["file"])
+    keypoints    = detection["keypoints"]
+
+    if not keypoints:
+        return jsonify({
+            "recommendations": [],
+            "pose_detected":   False,
+            "confidence":      detection.get("confidence", 0.0),
+            "error":           "No pose detected in image — cannot generate recommendations.",
+        }), 200   # 200 so frontend can show the message gracefully
+
+    try:
+        results = recommend(keypoints, top_n=5)
+        return jsonify({
+            "recommendations": results,
+            "pose_detected":   True,
+            "confidence":      detection.get("confidence", 0.0),
+        })
+    except Exception:
+        app.logger.exception("Error in /recommend")
+        return jsonify({"error": "Internal server error"}), 500
 
 
 if __name__ == "__main__":

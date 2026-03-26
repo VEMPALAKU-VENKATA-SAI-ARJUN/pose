@@ -464,6 +464,48 @@ _COMPATIBLE_TYPES = {
 }
 
 
+def detect_dynamic_partial(keypoints: list) -> bool:
+    """
+    Detect whether a pose is a dynamic/artistic partial pose.
+
+    Returns True when:
+        - Torso is present (at least one shoulder + one hip)
+        - At least one arm OR leg joint is detected
+        - BUT the pose is NOT fully complete (check_pose_completeness returns incomplete)
+
+    This covers crouching, jumping, foreshortened, or stylised poses where
+    some limbs are hidden or outside the frame.
+
+    Args:
+        keypoints: raw keypoint list from detect_keypoints()
+
+    Returns:
+        True if the pose qualifies as dynamic/partial, False otherwise.
+    """
+    detected_names = {k["name"] for k in keypoints}
+
+    # Torso: at least one shoulder AND one hip
+    has_torso = (
+        bool({"LEFT_SHOULDER", "RIGHT_SHOULDER"} & detected_names)
+        and bool({"LEFT_HIP", "RIGHT_HIP"} & detected_names)
+    )
+    if not has_torso:
+        return False
+
+    # At least one arm or leg joint
+    limb_joints = {
+        "LEFT_ELBOW", "RIGHT_ELBOW", "LEFT_WRIST", "RIGHT_WRIST",
+        "LEFT_KNEE",  "RIGHT_KNEE",  "LEFT_ANKLE", "RIGHT_ANKLE",
+    }
+    has_limb = bool(limb_joints & detected_names)
+    if not has_limb:
+        return False
+
+    # Must NOT be fully complete
+    completeness = check_pose_completeness(keypoints)
+    return not completeness["is_complete"]
+
+
 def check_pose_type_compatibility(ref_type: str, draw_type: str) -> dict:
     """
     Determine whether two pose types can be meaningfully compared.

@@ -64,7 +64,7 @@ function ComparePanel({
   comparison, drawingAnalysis,
   usedFallback, anatomyFallback, detectionCase,
   refDetected, drawDetected, refConfidence, drawConfidence,
-  similarityScore, upperBodyMode, poseTypeMismatch,
+  similarityScore, upperBodyMode, poseTypeMismatch, dynamicPartial,
 }) {
   const [open, setOpen] = useState(false);
   if (!comparison) return null;
@@ -108,7 +108,19 @@ function ComparePanel({
   return (
     <div style={s.root}>
       {/* Similarity score — top of panel */}
-      {similarityScore != null && <ScoreWidget score={similarityScore} />}
+      {similarityScore != null && <ScoreWidget score={similarityScore} partialMode={dynamicPartial} />}
+
+      {/* Dynamic partial pose banner */}
+      {dynamicPartial && (
+        <div style={s.dynamicPartialBanner}>
+          <span style={s.dynamicPartialIcon}>⚠</span>
+          <div>
+            <div style={{ fontWeight: "bold", marginBottom: 2 }}>Advanced pose detected</div>
+            <div>Using partial pose estimation for comparison. Some joints were not detected.</div>
+          </div>
+          <span style={s.estimationBadge}>Estimation Mode Active</span>
+        </div>
+      )}
 
       {caseBanner && <div style={caseBanner.style}>{caseBanner.text}</div>}
 
@@ -277,7 +289,7 @@ function SuggestionsPanel({ suggestions }) {
  * ScoreWidget — displays "Pose Match: 92%" with a color-coded arc bar.
  * Green ≥ 80, Amber 50–79, Red < 50.
  */
-function ScoreWidget({ score }) {
+function ScoreWidget({ score, partialMode }) {
   const pct   = Math.round(score);
   const color = pct >= 80 ? "#4ade80" : pct >= 50 ? "#fbbf24" : "#f87171";
   const bg    = pct >= 80 ? "#052e16" : pct >= 50 ? "#451a03" : "#1c0a0a";
@@ -315,6 +327,11 @@ function ScoreWidget({ score }) {
         <div style={{ fontSize: 10, color: "#64748b", textTransform: "uppercase", letterSpacing: 1, marginTop: 2 }}>
           Pose Match
         </div>
+        {partialMode && (
+          <div style={{ fontSize: 9, color: "#fbbf24", marginTop: 3, letterSpacing: 0.5 }}>
+            ★ partial estimate
+          </div>
+        )}
       </div>
     </div>
   );
@@ -326,6 +343,9 @@ function ScoreWidget({ score }) {
 const s = {
   root:            { fontFamily: "monospace", fontSize: 13 },
   scoreBox:        { marginBottom: 16, padding: "14px 12px 10px", border: "1px solid", borderRadius: 8, textAlign: "center" },
+  dynamicPartialBanner: { display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap", marginBottom: 12, padding: "10px 12px", background: "#1c1200", border: "1px solid #92400e", borderRadius: 6, color: "#fcd34d", fontSize: 12, lineHeight: 1.5 },
+  dynamicPartialIcon:   { fontSize: 16, flexShrink: 0, marginTop: 1 },
+  estimationBadge:      { marginLeft: "auto", alignSelf: "center", flexShrink: 0, background: "#451a03", border: "1px solid #fbbf24", borderRadius: 4, padding: "2px 8px", fontSize: 10, color: "#fbbf24", fontWeight: "bold", letterSpacing: 0.5, whiteSpace: "nowrap" },
   fallbackWarning: { marginBottom: 12, padding: "8px 12px", background: "#451a03", border: "1px solid #92400e", borderRadius: 6, color: "#fbbf24", fontSize: 12, lineHeight: 1.5 },
   anatomyWarning:  { marginBottom: 12, padding: "8px 12px", background: "#0c1a2e", border: "1px solid #1e40af", borderRadius: 6, color: "#93c5fd", fontSize: 12, lineHeight: 1.5 },
   upperBodyNotice: { marginBottom: 12, padding: "8px 12px", background: "#1a1a2e", border: "1px solid #6366f1", borderRadius: 6, color: "#a5b4fc", fontSize: 12, lineHeight: 1.5 },
