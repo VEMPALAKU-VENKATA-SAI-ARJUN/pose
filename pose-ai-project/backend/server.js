@@ -1,15 +1,25 @@
 /**
  * server.js  —  P.O.S.E Express Backend
  *
- * POST /api/analyze  — single image analysis
- * POST /api/compare  — reference vs drawing comparison
+ * POST /api/analyze   — single image analysis (memory, proxy only)
+ * POST /api/compare   — reference vs drawing comparison
+ * POST /api/analysis  — analysis with disk storage + MongoDB persistence
+ * GET  /api/analysis  — fetch analysis history
  */
 
-const express  = require("express");
-const cors     = require("cors");
-const multer   = require("multer");
-const axios    = require("axios");
-const FormData = require("form-data");
+const express   = require("express");
+const cors      = require("cors");
+const multer    = require("multer");
+const axios     = require("axios");
+const FormData  = require("form-data");
+const mongoose  = require("mongoose");
+const path      = require("path");
+
+// ── MongoDB connection ────────────────────────────────────────────────────────
+const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/poseai";
+mongoose.connect(MONGO_URI)
+  .then(() => console.log(`MongoDB connected → ${MONGO_URI}`))
+  .catch(err => console.warn(`MongoDB not connected: ${err.message} (history disabled)`));
 
 const app  = express();
 const PORT = process.env.PORT           || 3001;
@@ -17,6 +27,13 @@ const AI   = process.env.AI_SERVICE_URL || "http://localhost:5000";
 
 app.use(cors());
 app.use(express.json());
+
+// Serve uploaded images as static files
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// ── Analysis route (disk storage + MongoDB) ───────────────────────────────────
+const analysisRoute = require("./routes/analysisRoute");
+app.use("/api/analysis", analysisRoute);
 
 // ── Multer instances ──────────────────────────────────────────────────────────
 

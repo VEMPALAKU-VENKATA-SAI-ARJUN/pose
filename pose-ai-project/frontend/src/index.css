@@ -1,3 +1,51 @@
+/* ── Design tokens ────────────────────────────────────────────────────────── */
+:root {
+  /* Backgrounds */
+  --bg:            #F8F9FB;
+  --bg-card:       #FFFFFF;
+  --bg-dark:       #0f0f1a;
+
+  /* Primary gradient */
+  --grad-from:     #7B61FF;
+  --grad-to:       #A855F7;
+  --grad:          linear-gradient(135deg, var(--grad-from), var(--grad-to));
+  --grad-h:        linear-gradient(90deg,  var(--grad-from), var(--grad-to));
+
+  /* Accent colours */
+  --accent-pink:   #EC4899;
+  --accent-sky:    #38BDF8;
+
+  /* Text */
+  --text-primary:  #1F2937;
+  --text-secondary:#6B7280;
+
+  /* Border */
+  --border:        #E5E7EB;
+
+  /* Purple tints (derived from primary) */
+  --purple-50:     #f5f3ff;
+  --purple-100:    #ede9fe;
+  --purple-200:    #ddd6fe;
+  --purple-300:    #c4b5fd;
+  --purple-700:    #6d28d9;
+  --purple-900:    #4c1d95;
+
+  /* Semantic */
+  --success-bg:    #f0fdf4;
+  --success-border:#bbf7d0;
+  --success-text:  #15803d;
+  --warn-bg:       #fffbeb;
+  --warn-border:   #fde68a;
+  --warn-text:     #b45309;
+  --error-bg:      #fff1f2;
+  --error-border:  #fecdd3;
+  --error-text:    #be123c;
+  --orange-bg:     #fff7ed;
+  --orange-border: #fed7aa;
+  --orange-text:   #ea580c;
+}
+
+/* ── Reset ────────────────────────────────────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -6,10 +54,11 @@
 
 html, body, #root {
   min-height: 100%;
-  /*background: linear-gradient(#464646,#4e2c2c,#ffffff,#ffffff);*/
-  color: #e2e8f0;
+  background: var(--bg);
+  color: var(--text-primary);
 }
 
 body {
   -webkit-font-smoothing: antialiased;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
 }

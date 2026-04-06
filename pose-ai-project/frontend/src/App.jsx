@@ -12,6 +12,7 @@
  */
 
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import UploadPanel    from "./components/UploadPanel";
 import CanvasViewer   from "./components/CanvasViewer";
 import ErrorPanel     from "./components/ErrorPanel";
@@ -52,8 +53,8 @@ const initCompare = () => ({
 
 // ── App ───────────────────────────────────────────────────────────────────────
 
-export default function App() {
-  const [mode,       setMode]       = useState("single");
+export default function App({ mode: initialMode } = {}) {
+  const [mode,       setMode]       = useState(initialMode || "single");
   const [loading,    setLoading]    = useState(false);
   const [apiError,   setApiError]   = useState(null);
   const [single,     setSingle]     = useState(initSingle());
@@ -244,6 +245,11 @@ export default function App() {
       {/* Header */}
       <header style={s.header}>
         <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
+            <Link to="/" style={{ fontSize: 11, color: "#7c3aed", textDecoration: "none", border: "1px solid #ddd6fe", borderRadius: 6, padding: "3px 10px", background: "#faf5ff" }}>
+              ← Dashboard
+            </Link>
+          </div>
           <h1 style={s.title}>P.O.S.E</h1>
           <p style={s.subtitle}>Pose Optimization and Structural Evaluation System</p>
         </div>
