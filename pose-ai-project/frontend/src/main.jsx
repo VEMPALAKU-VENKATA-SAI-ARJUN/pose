@@ -2,10 +2,12 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import "./index.css";
-import Dashboard    from "./components/Dashboard";
-import App          from "./App";
-import AnalysisPage from "./components/AnalysisPage";
-import PracticePage from "./components/PracticePage";
+import Dashboard      from "./components/Dashboard";
+import App            from "./App";
+import AnalysisPage   from "./components/AnalysisPage";
+import PracticePage   from "./components/PracticePage";
+import GestureMode    from "./components/gesture/GestureMode";
+import ReferenceMode  from "./components/reference/ReferenceMode";
 
 // Placeholder pages for modes not yet built
 const Placeholder = ({ title }) => (
@@ -25,7 +27,8 @@ createRoot(document.getElementById("root")).render(
         <Route path="/analyze"   element={<AnalysisPage />} />
         <Route path="/compare"   element={<App mode="compare" />} />
         <Route path="/practice"  element={<PracticePage />} />
-        <Route path="/reference" element={<Placeholder title="Reference Mode" />} />
+        <Route path="/gesture"   element={<GestureMode />} />
+        <Route path="/reference" element={<ReferenceMode />} />
         <Route path="/challenge" element={<Placeholder title="Challenge Mode" />} />
         <Route path="/anatomy"   element={<Placeholder title="Anatomy Breakdown" />} />
       </Routes>

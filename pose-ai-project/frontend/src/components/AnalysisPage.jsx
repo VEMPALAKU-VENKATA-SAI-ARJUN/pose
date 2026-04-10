@@ -14,11 +14,35 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
+import { PoseLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import {
   ArrowLeft, ImageIcon, Bone, Lightbulb, ScanSearch,
   AlertCircle, CheckCircle, Camera, ChevronRight,
 } from "lucide-react";
 import "./AnalysisPage.css";
+
+// ── MediaPipe PoseLandmarker (npm) ────────────────────────────────────────────
+let _apLandmarkerPromise = null;
+
+async function getAPLandmarker() {
+  if (!_apLandmarkerPromise) {
+    _apLandmarkerPromise = (async () => {
+      const vision = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm"
+      );
+      return PoseLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath:
+            "https://storage.googleapis.com/mediapipe-assets/pose_landmarker_lite.task",
+          delegate: "GPU",
+        },
+        runningMode: "IMAGE",
+        numPoses: 1,
+      });
+    })();
+  }
+  return _apLandmarkerPromise;
+}
 
 const API_URL = "/api/analysis";
 
@@ -208,37 +232,19 @@ function preprocessWithOpenCV(imgElement, targetSize = 640) {
 }
 
 
-// ── MediaPipe Pose (JS) detection ─────────────────────────────────────────────
-// Uses the CDN-loaded window.Pose if available.
+// ── MediaPipe Pose (Tasks Vision API) detection ───────────────────────────────
 async function detectWithMediaPipe(imgElement) {
-  return new Promise((resolve) => {
-    try {
-      const PoseCtor = window.Pose;
-      if (!PoseCtor) return resolve(null);
-
-      const pose = new PoseCtor({
-        locateFile: (file) =>
-          `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
-      });
-
-      pose.setOptions({
-        modelComplexity:    1,
-        smoothLandmarks:    true,
-        enableSegmentation: false,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence:  0.5,
-      });
-
-      pose.onResults((results) => {
-        pose.close();
-        resolve(results.poseLandmarks || null);
-      });
-
-      pose.send({ image: imgElement }).catch(() => resolve(null));
-    } catch {
-      resolve(null);
-    }
-  });
+  try {
+    const landmarker = await getAPLandmarker();
+    const result     = landmarker.detect(imgElement);
+    if (!result.landmarks?.length) return null;
+    return result.landmarks[0].map(lm => ({
+      x: lm.x, y: lm.y, z: lm.z ?? 0,
+      visibility: lm.visibility ?? 0.9,
+    }));
+  } catch {
+    return null;
+  }
 }
 
 

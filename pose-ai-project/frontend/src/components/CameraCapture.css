@@ -1,0 +1,199 @@
+/* ── Root ─────────────────────────────────────────────────────────────────── */
+.cc-root {
+  border: 1px solid var(--purple-200);
+  border-radius: 12px;
+  background: var(--bg-card);
+  overflow: hidden;
+  animation: ccFadeIn 0.25s ease both;
+}
+
+@keyframes ccFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+.cc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--purple-50);
+}
+
+.cc-title {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--purple-900);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.cc-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+.cc-close:hover { color: var(--error-text); background: var(--error-bg); }
+
+/* ── Viewport ─────────────────────────────────────────────────────────────── */
+.cc-viewport {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #0a0a14;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Live video — hidden by default, shown when .visible */
+.cc-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.cc-video.visible { opacity: 1; }
+
+/* Captured snapshot */
+.cc-snapshot {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: ccFadeIn 0.2s ease both;
+}
+
+/* Placeholder (idle / starting / error) */
+.cc-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+}
+.cc-placeholder p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  max-width: 220px;
+  line-height: 1.5;
+  margin: 0;
+}
+.cc-placeholder--error p { color: var(--error-text); }
+
+/* Crosshair overlay on live feed */
+.cc-crosshair {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.cc-crosshair span {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-color: rgba(255,255,255,0.6);
+  border-style: solid;
+  border-width: 0;
+}
+.cc-crosshair span:nth-child(1) { top: 16px;    left: 16px;    border-top-width: 2px;    border-left-width: 2px; }
+.cc-crosshair span:nth-child(2) { top: 16px;    right: 16px;   border-top-width: 2px;    border-right-width: 2px; }
+.cc-crosshair span:nth-child(3) { bottom: 16px; left: 16px;    border-bottom-width: 2px; border-left-width: 2px; }
+.cc-crosshair span:nth-child(4) { bottom: 16px; right: 16px;   border-bottom-width: 2px; border-right-width: 2px; }
+
+/* Captured badge */
+.cc-captured-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: var(--success-bg);
+  color: var(--success-text);
+  border: 1px solid var(--success-border);
+  letter-spacing: 0.5px;
+}
+
+/* ── Spinner ──────────────────────────────────────────────────────────────── */
+.cc-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--purple-200);
+  border-top-color: var(--grad-from);
+  border-radius: 50%;
+  animation: ccSpin 0.7s linear infinite;
+}
+.cc-spinner--sm {
+  width: 13px;
+  height: 13px;
+  border-width: 2px;
+}
+@keyframes ccSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Action buttons ───────────────────────────────────────────────────────── */
+.cc-actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px 14px;
+  justify-content: center;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.cc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.15s;
+  letter-spacing: 0.3px;
+}
+.cc-btn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+.cc-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+.cc-btn--primary   { background: var(--grad); color: #fff; }
+.cc-btn--secondary { background: var(--bg-card); color: var(--grad-from); border: 1px solid var(--purple-200); }
+
+/* Capture button — larger, pink accent */
+.cc-btn--capture {
+  background: linear-gradient(135deg, #EC4899, #f43f5e);
+  color: #fff;
+  padding: 10px 28px;
+  font-size: 13px;
+  gap: 10px;
+}
+
+/* Shutter circle inside capture button */
+.cc-shutter {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.9);
+  border: 2px solid rgba(255,255,255,0.5);
+  flex-shrink: 0;
+}

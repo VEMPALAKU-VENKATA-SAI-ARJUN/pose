@@ -6,12 +6,9 @@
     <title>P.O.S.E — Pose Optimization and Structural Evaluation System</title>
     <style>
       *, *::before, *::after { box-sizing: border-box; }
-      body { margin: 0; background: #0a0a0a; }
+      body { margin: 0; background: #F8F9FB; }
     </style>
-    <!-- MediaPipe Pose (JS) — loaded async, used by AnalysisPage if available -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
-    <!-- OpenCV.js — loaded async, used for image preprocessing -->
+    <!-- OpenCV.js — async, used for image preprocessing in AnalysisPage -->
     <script async src="https://docs.opencv.org/4.8.0/opencv.js" type="text/javascript"></script>
   </head>
   <body>

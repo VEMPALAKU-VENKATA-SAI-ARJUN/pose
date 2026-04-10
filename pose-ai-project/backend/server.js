@@ -35,6 +35,10 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 const analysisRoute = require("./routes/analysisRoute");
 app.use("/api/analysis", analysisRoute);
 
+// ── Poses route (dataset serving) ────────────────────────────────────────────
+const posesRoute = require("./routes/posesRoute");
+app.use("/api/poses", posesRoute);
+
 // ── Multer instances ──────────────────────────────────────────────────────────
 
 const imageFilter = (_req, file, cb) => {

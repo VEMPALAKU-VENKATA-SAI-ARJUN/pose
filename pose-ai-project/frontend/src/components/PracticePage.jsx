@@ -15,9 +15,10 @@ import axios from "axios";
 import {
   ArrowLeft, Play, Square, RotateCcw, ArrowRight, SkipForward,
   Upload, Target, Timer, CheckCircle, ChevronRight, AlertCircle,
-  ImageIcon, Send,
+  ImageIcon, Send, Camera,
 } from "lucide-react";
 import poses from "../data/poseDataset.json";
+import CameraCapture from "./CameraCapture";
 import "./PracticePage.css";
 
 const COMPARE_URL = "/api/compare";
@@ -148,6 +149,7 @@ export default function PracticePage() {
   const [error,       setError]       = useState(null);
   const [result,      setResult]      = useState(null);       // compare API response
   const [sessionCount,setSessionCount]= useState(0);
+  const [isCameraOpen,setIsCameraOpen]= useState(false);      // webcam capture UI
 
   const intervalRef  = useRef(null);
   const refImgRef    = useRef(null);   // reference <img> for compare
@@ -336,6 +338,7 @@ export default function PracticePage() {
     setDrawSrc(null);
     setResult(null);
     setError(null);
+    setIsCameraOpen(false);
     landmarkRef.current = null;
   };
 
@@ -391,7 +394,10 @@ export default function PracticePage() {
         <div className="pp-panel">
           <div className="pp-panel-header">
             <span className="pp-panel-title">Reference Pose</span>
-            <span className={`pp-panel-badge ${pose.difficulty}`}>{pose.difficulty}</span>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <span className={`pp-panel-badge pp-cat-${pose.category}`}>{pose.category}</span>
+              <span className={`pp-panel-badge ${pose.difficulty}`}>{pose.difficulty}</span>
+            </div>
           </div>
 
           <div className="pp-ref-wrap">
@@ -404,7 +410,7 @@ export default function PracticePage() {
             />
             {phase === "idle" && (
               <div className="pp-ref-overlay">
-                <div className="pp-ref-overlay-icon">🎯</div>
+                <Target size={40} color="rgba(255,255,255,0.7)" strokeWidth={1.5} style={{ marginBottom: 8 }} />
                 <p>Start the timer to reveal the reference pose</p>
               </div>
             )}
@@ -455,20 +461,71 @@ export default function PracticePage() {
             </span>
           </div>
 
-          {/* Upload zone — shown in done phase */}
+          {/* Submit section — shown in done phase */}
           {phase === "done" && (
-            <div
-              className={`pp-upload${dragOver ? " drag-over" : ""}`}
-              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={onDrop}
-            >
-              <input type="file" accept="image/*" onChange={onInputChange} />
-              <div className="pp-upload-icon">🖼️</div>
-              {drawFile
-                ? <p><strong>{drawFile.name}</strong> — ready to submit</p>
-                : <p>Drop your drawing here or <strong>click to browse</strong></p>
-              }
+            <div className="pp-submit-section">
+              {/* Mode tabs: Upload vs Camera */}
+              {!isCameraOpen && (
+                <div className="pp-submit-tabs">
+                  <button
+                    className="pp-submit-tab active"
+                    onClick={() => setIsCameraOpen(false)}
+                  >
+                    <ImageIcon size={13} /> Upload File
+                  </button>
+                  <button
+                    className="pp-submit-tab"
+                    onClick={() => { setIsCameraOpen(true); setDrawFile(null); setDrawSrc(null); }}
+                  >
+                    <Camera size={13} /> Use Camera
+                  </button>
+                </div>
+              )}
+
+              {/* Camera capture UI */}
+              {isCameraOpen ? (
+                <CameraCapture
+                  onCapture={(file, previewUrl) => {
+                    setDrawFile(file);
+                    setDrawSrc(previewUrl);
+                    setIsCameraOpen(false);
+                  }}
+                  onClose={() => setIsCameraOpen(false)}
+                />
+              ) : (
+                /* File upload zone */
+                <div
+                  className={`pp-upload${dragOver ? " drag-over" : ""}`}
+                  onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={onDrop}
+                >
+                  <input type="file" accept="image/*" onChange={onInputChange} />
+                  <ImageIcon size={28} color="var(--purple-300)" strokeWidth={1.5} style={{ marginBottom: 8 }} />
+                  {drawFile
+                    ? <p><strong>{drawFile.name}</strong> — ready to submit</p>
+                    : <p>Drop your drawing here or <strong>click to browse</strong></p>
+                  }
+                </div>
+              )}
+
+              {/* Preview of captured/uploaded image */}
+              {drawSrc && !isCameraOpen && (
+                <div className="pp-preview-strip">
+                  <img src={drawSrc} alt="Your drawing preview" className="pp-preview-thumb" />
+                  <div className="pp-preview-info">
+                    <span className="pp-preview-name">
+                      {drawFile?.name || "webcam_capture.png"}
+                    </span>
+                    <button
+                      className="pp-preview-clear"
+                      onClick={() => { setDrawFile(null); setDrawSrc(null); }}
+                    >
+                      <RotateCcw size={11} /> Change
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -477,16 +534,16 @@ export default function PracticePage() {
             {phase === "idle" && (
               <>
                 <button className="pp-btn primary" onClick={startTimer}>
-                  ▶ Start Practice
+                  <Play size={13} /> Start Practice
                 </button>
                 <button className="pp-btn secondary" onClick={handleNext}>
-                  ↻ New Pose
+                  <RotateCcw size={13} /> New Pose
                 </button>
               </>
             )}
             {phase === "running" && (
               <button className="pp-btn danger" onClick={() => { stopTimer(); setPhase("done"); setRemaining(0); }}>
-                ■ Stop Early
+                <Square size={13} /> Stop Early
               </button>
             )}
             {phase === "done" && (
@@ -494,22 +551,25 @@ export default function PracticePage() {
                 <button
                   className="pp-btn primary"
                   onClick={handleSubmit}
-                  disabled={!drawFile || loading}
+                  disabled={!drawFile || loading || isCameraOpen}
                 >
-                  {loading ? "Analyzing…" : "Submit Drawing →"}
+                  {loading ? "Analyzing…" : <><Send size={13} /> Submit Drawing</>}
                 </button>
                 <button className="pp-btn secondary" onClick={handleNext}>
-                  ↻ Skip Pose
+                  <SkipForward size={13} /> Skip Pose
                 </button>
               </>
             )}
             {phase === "review" && (
               <>
                 <button className="pp-btn primary" onClick={handleNext}>
-                  ▶ Next Pose
+                  <Play size={13} /> Next Pose
                 </button>
-                <button className="pp-btn secondary" onClick={() => { setPhase("done"); setResult(null); setDrawFile(null); setDrawSrc(null); }}>
-                  ↩ Retry
+                <button className="pp-btn secondary" onClick={() => {
+                  setPhase("done"); setResult(null);
+                  setDrawFile(null); setDrawSrc(null); setIsCameraOpen(false);
+                }}>
+                  <RotateCcw size={13} /> Retry
                 </button>
               </>
             )}

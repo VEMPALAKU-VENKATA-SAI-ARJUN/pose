@@ -1,83 +1,327 @@
 [
   {
-    "id": "p01",
+    "id": "b01",
+    "label": "Neutral Stand",
+    "category": "basic",
+    "difficulty": "easy",
+    "description": "Relaxed upright stance, feet hip-width apart, arms hanging naturally at the sides. The foundation of all figure drawing.",
+    "tips": [
+      "Observe the natural S-curve of the spine",
+      "Shoulders sit directly above the hips",
+      "Weight is distributed evenly on both feet"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1534367610401-9f5ed68180aa?w=800&q=85&fit=crop"
+  },
+  {
+    "id": "b02",
     "label": "T-Pose",
     "category": "basic",
     "difficulty": "easy",
-    "description": "Stand upright with arms extended horizontally at shoulder height, palms facing down.",
-    "tips": ["Keep your spine straight", "Arms should be perfectly horizontal", "Feet shoulder-width apart"],
-    "imageUrl": "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&q=80"
+    "description": "Arms extended horizontally at shoulder height, palms down, feet shoulder-width apart. Classic reference for proportions.",
+    "tips": [
+      "Arms should be perfectly level — use the shoulder line as a guide",
+      "Check that the torso length equals roughly 3 head-heights",
+      "Wrists align with the shoulder plane"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=85&fit=crop"
   },
   {
-    "id": "p02",
-    "label": "Warrior I",
-    "category": "yoga",
-    "difficulty": "medium",
-    "description": "Lunge forward with back foot at 45°, arms raised overhead, hips squared to the front.",
-    "tips": ["Front knee over ankle", "Back leg straight and strong", "Reach arms up actively"],
-    "imageUrl": "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=600&q=80"
-  },
-  {
-    "id": "p03",
-    "label": "Tree Pose",
-    "category": "yoga",
-    "difficulty": "medium",
-    "description": "Balance on one leg, place the other foot on the inner thigh, hands in prayer at chest.",
-    "tips": ["Fix your gaze on a still point", "Press foot into thigh and thigh into foot", "Engage your core"],
-    "imageUrl": "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=600&q=80"
-  },
-  {
-    "id": "p04",
-    "label": "Standing Stretch",
+    "id": "b03",
+    "label": "Front View Stand",
     "category": "basic",
     "difficulty": "easy",
-    "description": "Stand tall, reach both arms overhead, slight back arch, chin lifted.",
-    "tips": ["Elongate through the fingertips", "Keep feet grounded", "Breathe into the stretch"],
-    "imageUrl": "https://images.unsplash.com/photo-1518611012118-696072aa579a?w=600&q=80"
+    "description": "Full-body frontal view, arms slightly away from the body. Essential for studying bilateral symmetry and proportions.",
+    "tips": [
+      "Draw a vertical centre line from nose to feet",
+      "Check that left and right sides mirror each other",
+      "Note the slight inward angle of the lower legs"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=800&q=85&fit=crop"
   },
   {
-    "id": "p05",
-    "label": "Side Lunge",
-    "category": "athletic",
+    "id": "b04",
+    "label": "Side Profile Stand",
+    "category": "basic",
+    "difficulty": "easy",
+    "description": "Pure lateral view showing the natural spinal curves, chest projection, and leg alignment from the side.",
+    "tips": [
+      "The ear, shoulder, hip, knee and ankle should align vertically",
+      "Notice the forward curve of the lumbar spine",
+      "The chest projects forward of the shoulder line"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1518611012118-696072aa579a?w=800&q=85&fit=crop"
+  },
+  {
+    "id": "b05",
+    "label": "A-Pose",
+    "category": "basic",
+    "difficulty": "easy",
+    "description": "Arms angled down at roughly 45°, feet slightly apart. A relaxed variant of the T-pose used in character rigging.",
+    "tips": [
+      "Arms form a 45° angle with the torso",
+      "Fingers are relaxed, not splayed",
+      "Weight is centred between both feet"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=800&q=85&fit=crop"
+  },
+  {
+    "id": "g01",
+    "label": "Running Stride",
+    "category": "gesture",
     "difficulty": "medium",
-    "description": "Step wide to one side, bend that knee to 90°, keep the other leg straight, torso upright.",
-    "tips": ["Knee tracks over toes", "Keep chest up", "Weight in the heel of bent leg"],
-    "imageUrl": "https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=600&q=80"
+    "description": "Mid-stride running pose with strong diagonal lines through the body. Great for studying dynamic weight shift.",
+    "tips": [
+      "The torso leans forward — find the angle of the spine",
+      "Opposite arm and leg move together",
+      "Look for the compression on the landing side"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=800&q=85&fit=crop"
   },
   {
-    "id": "p06",
-    "label": "Forward Fold",
-    "category": "yoga",
+    "id": "g02",
+    "label": "Jump — Peak",
+    "category": "gesture",
+    "difficulty": "hard",
+    "description": "Full-body jump at peak height, limbs extended. Captures weightlessness and extreme foreshortening.",
+    "tips": [
+      "The centre of gravity is at its highest — draw it first",
+      "Limbs radiate outward from the core",
+      "Foreshortening affects the legs most — observe carefully"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1599901860904-17e6ed7083a0?w=800&q=85&fit=crop"
+  },
+  {
+    "id": "g03",
+    "label": "Reaching Up",
+    "category": "gesture",
+    "difficulty": "medium",
+    "description": "One arm fully extended overhead, body slightly stretched to the side. Shows ribcage lift and lateral stretch.",
+    "tips": [
+      "The ribcage tilts toward the raised arm",
+      "The hip on the raised-arm side drops slightly",
+      "Feel the stretch from hip to fingertip as a single line"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=800&q=85&fit=crop"
+  },
+  {
+    "id": "g04",
+    "label": "Torso Twist",
+    "category": "gesture",
+    "difficulty": "medium",
+    "description": "Shoulders rotated relative to hips, creating a spiral through the spine. Core gesture drawing exercise.",
+    "tips": [
+      "Draw the shoulder line and hip line as separate angles",
+      "The spine creates an S-curve in the twist",
+      "The further the twist, the more the ribcage compresses on one side"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=800&q=85&fit=crop"
+  },
+  {
+    "id": "g05",
+    "label": "Lunge Forward",
+    "category": "gesture",
+    "difficulty": "medium",
+    "description": "Deep forward lunge, front knee at 90°, back leg extended. Strong diagonal energy through the body.",
+    "tips": [
+      "Front knee should not pass the toes",
+      "The torso stays upright — check the vertical spine",
+      "Back heel lifts — observe the angle of the rear foot"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1518611012118-696072aa579a?w=800&q=85&fit=crop"
+  },
+  {
+    "id": "g06",
+    "label": "Side Kick",
+    "category": "gesture",
+    "difficulty": "hard",
+    "description": "One leg raised laterally to hip height, arms in guard position. Extreme weight shift onto one leg.",
+    "tips": [
+      "The standing leg carries all the weight — draw it strong",
+      "The raised hip is higher than the standing hip",
+      "The torso counter-leans away from the kick"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1552196563-55cd4e45efb3?w=800&q=85&fit=crop"
+  },
+  {
+    "id": "s01",
+    "label": "Sitting — Upright",
+    "category": "sitting",
     "difficulty": "easy",
-    "description": "Stand with feet hip-width, hinge at hips and fold forward, hands reaching toward the floor.",
-    "tips": ["Hinge from hips not waist", "Soft bend in knees if needed", "Let head hang heavy"],
-    "imageUrl": "https://images.unsplash.com/photo-1552196563-55cd4e45efb3?w=600&q=80"
+    "description": "Seated on a surface, spine straight, feet flat on the floor. Studies the foreshortening of the thighs.",
+    "tips": [
+      "Thighs foreshorten significantly — they appear shorter than they are",
+      "The pelvis tilts slightly forward when sitting upright",
+      "Knees are at roughly 90° — check the angle carefully"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1552196563-55cd4e45efb3?w=800&q=85&fit=crop"
   },
   {
-    "id": "p07",
+    "id": "s02",
+    "label": "Sitting — Relaxed Lean",
+    "category": "sitting",
+    "difficulty": "medium",
+    "description": "Seated with a relaxed backward lean, one arm supporting. Shows the collapsed S-curve of a resting spine.",
+    "tips": [
+      "The spine rounds when leaning back — no longer straight",
+      "The supporting arm creates a strong diagonal",
+      "The shoulders drop and roll forward slightly"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=800&q=85&fit=crop"
+  },
+  {
+    "id": "s03",
+    "label": "Cross-Legged Floor Sit",
+    "category": "sitting",
+    "difficulty": "medium",
+    "description": "Seated on the floor with legs crossed, hands resting on knees. Challenges the drawing of foreshortened legs.",
+    "tips": [
+      "The pelvis tilts backward — the lower back rounds",
+      "Knees are wide and low — observe the diamond shape of the legs",
+      "The feet tuck under the opposite knee"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=800&q=85&fit=crop"
+  },
+  {
+    "id": "s04",
+    "label": "Seated Forward Fold",
+    "category": "sitting",
+    "difficulty": "medium",
+    "description": "Seated with legs extended, torso folded forward over the legs. Extreme spinal flexion and hamstring stretch.",
+    "tips": [
+      "The spine curves in a long arc from tailbone to neck",
+      "The head hangs heavy — it is not lifted",
+      "The legs stay straight — observe the angle of the feet"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1599901860904-17e6ed7083a0?w=800&q=85&fit=crop"
+  },
+  {
+    "id": "a01",
+    "label": "Contrapposto",
+    "category": "anatomy",
+    "difficulty": "medium",
+    "description": "Classical weight-shift pose: weight on one leg, hip raised on that side, opposite shoulder raised. The foundation of naturalistic figure drawing.",
+    "tips": [
+      "Hip and shoulder lines tilt in opposite directions",
+      "The weight-bearing leg is straight, the free leg is bent",
+      "The spine creates a gentle S-curve between the two tilts"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1534367610401-9f5ed68180aa?w=800&q=85&fit=crop"
+  },
+  {
+    "id": "a02",
     "label": "Power Stance",
-    "category": "athletic",
+    "category": "anatomy",
     "difficulty": "easy",
-    "description": "Feet wider than shoulders, slight bend in knees, hands on hips, chest open.",
-    "tips": ["Ground through all four corners of feet", "Shoulders back and down", "Chin parallel to floor"],
-    "imageUrl": "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=600&q=80"
+    "description": "Feet wider than shoulders, slight knee bend, hands on hips. Emphasises the width of the pelvis and shoulder girdle.",
+    "tips": [
+      "The trapezoid of the torso is widest at the shoulders",
+      "The pelvis is the widest point of the lower body",
+      "Both feet are planted — equal weight distribution"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=800&q=85&fit=crop"
   },
   {
-    "id": "p08",
+    "id": "a03",
+    "label": "Arms Overhead Stretch",
+    "category": "anatomy",
+    "difficulty": "easy",
+    "description": "Both arms raised fully overhead, slight back arch, chin lifted. Shows the full length of the torso and ribcage lift.",
+    "tips": [
+      "The ribcage lifts and expands — it is no longer compressed",
+      "The waist narrows as the obliques stretch",
+      "The arms align with the ears, not in front of them"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=85&fit=crop"
+  },
+  {
+    "id": "a04",
+    "label": "Wide Side Lunge",
+    "category": "anatomy",
+    "difficulty": "medium",
+    "description": "Wide lateral lunge, one knee bent to 90°, other leg straight. Emphasises the adductor muscles and hip width.",
+    "tips": [
+      "The bent knee tracks directly over the foot",
+      "The straight leg is fully extended — no bend at the knee",
+      "The torso stays upright between the two legs"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=800&q=85&fit=crop"
+  },
+  {
+    "id": "a05",
+    "label": "Back View Stand",
+    "category": "anatomy",
+    "difficulty": "medium",
+    "description": "Full-body rear view, arms slightly away from the body. Essential for studying the back muscles, spine, and gluteal structure.",
+    "tips": [
+      "The spine is visible as a central groove between the erector muscles",
+      "The shoulder blades (scapulae) are prominent landmarks",
+      "The gluteal crease defines the bottom of the torso"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=800&q=85&fit=crop"
+  },
+  {
+    "id": "a06",
+    "label": "Three-Quarter View",
+    "category": "anatomy",
+    "difficulty": "medium",
+    "description": "45° rotated view showing both front and side planes of the body simultaneously. The most common view in figure drawing.",
+    "tips": [
+      "The centre line of the torso curves around the form",
+      "One shoulder is closer — it appears larger",
+      "The far hip is partially hidden by the near hip"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1518611012118-696072aa579a?w=800&q=85&fit=crop"
+  },
+  {
+    "id": "a07",
+    "label": "Warrior I",
+    "category": "anatomy",
+    "difficulty": "medium",
+    "description": "Deep lunge with back foot at 45°, arms raised overhead, hips squared to the front. Strong diagonal energy.",
+    "tips": [
+      "Front knee stacks directly over the ankle",
+      "Back leg is straight and strong — feel the tension",
+      "Arms reach up alongside the ears, not in front"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=800&q=85&fit=crop"
+  },
+  {
+    "id": "a08",
+    "label": "Tree Balance",
+    "category": "anatomy",
+    "difficulty": "hard",
+    "description": "Single-leg balance with raised foot pressed to inner thigh, hands in prayer. Tests understanding of the balance axis.",
+    "tips": [
+      "The entire body weight passes through one ankle",
+      "The standing hip is slightly raised — not level",
+      "The spine stays vertical — resist the lean"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=800&q=85&fit=crop"
+  },
+  {
+    "id": "a09",
+    "label": "Squat — Deep",
+    "category": "anatomy",
+    "difficulty": "hard",
+    "description": "Full depth squat, heels flat, arms forward for balance. Extreme hip and knee flexion — challenging foreshortening.",
+    "tips": [
+      "The torso leans forward to counterbalance the hips",
+      "The thighs are nearly horizontal — heavily foreshortened",
+      "The knees track over the toes — observe the angle"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1552196563-55cd4e45efb3?w=800&q=85&fit=crop"
+  },
+  {
+    "id": "a10",
     "label": "Crescent Lunge",
-    "category": "yoga",
+    "category": "anatomy",
     "difficulty": "hard",
-    "description": "Deep lunge with back knee lifted, arms raised overhead, slight backbend.",
-    "tips": ["Stack front knee over ankle", "Tuck back hip under", "Reach arms alongside ears"],
-    "imageUrl": "https://images.unsplash.com/photo-1599901860904-17e6ed7083a0?w=600&q=80"
-  },
-  {
-    "id": "p09",
-    "label": "Punching Pose",
-    "category": "Action",
-    "difficulty": "hard",
-    "description": "Deep lunge with back knee lifted, arms raised overhead, slight backbend.",
-    "tips": ["Stack front knee over ankle", "Tuck back hip under", "Reach arms alongside ears"],
-    "imageUrl": "https://i.pinimg.com/736x/21/1a/58/211a58f9a54f691a692c1ea531bc8a1f.jpg"
+    "description": "Deep lunge with back knee lifted, arms raised overhead, slight backbend. Full-body extension with complex curves.",
+    "tips": [
+      "The back hip tucks under — do not let it sag",
+      "The spine arches gently backward from the thoracic region",
+      "Arms reach up and slightly back — follow the arc"
+    ],
+    "imageUrl": "https://images.unsplash.com/photo-1599901860904-17e6ed7083a0?w=800&q=85&fit=crop"
   }
 ]

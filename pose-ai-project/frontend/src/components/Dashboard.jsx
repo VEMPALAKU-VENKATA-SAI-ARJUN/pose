@@ -1,75 +1,69 @@
 /**
  * Dashboard.jsx — PoseAI landing dashboard
- * Six mode cards, fixed navbar, fade-in animations, React Router navigation.
  */
 
 import { Link } from "react-router-dom";
 import {
-  ScanSearch, Scale, Target, Image, Trophy, Bone, ArrowRight, Sparkles,
+  ScanSearch, Scale, Target, Zap, Image, Bone, ArrowRight, Sparkles,
 } from "lucide-react";
 import "./Dashboard.css";
 
-// ── Mode card definitions ─────────────────────────────────────────────────────
-
 const MODES = [
   {
-    to:     "/analyze",
-    Icon:   ScanSearch,
-    title:  "Analysis Mode",
-    desc:   "Upload a single image and get a full anatomical breakdown — joint angles, limb proportions, symmetry, and center of gravity.",
-    accent: "linear-gradient(90deg, #7B61FF, #A855F7)",
-    iconBg: "#f5f3ff",
+    to:        "/analyze",
+    Icon:      ScanSearch,
+    title:     "Analysis Mode",
+    desc:      "Upload a single image and get a full anatomical breakdown — joint angles, limb proportions, symmetry, and center of gravity.",
+    accent:    "linear-gradient(90deg, #7B61FF, #A855F7)",
+    iconBg:    "#f5f3ff",
     iconColor: "#7B61FF",
   },
   {
-    to:     "/compare",
-    Icon:   Scale,
-    title:  "Comparison Mode",
-    desc:   "Upload a reference and your drawing side-by-side. Get a pose match score, flagged deviations, and directional correction arrows.",
-    accent: "linear-gradient(90deg, #2563eb, #7B61FF)",
-    iconBg: "#eff6ff",
+    to:        "/compare",
+    Icon:      Scale,
+    title:     "Comparison Mode",
+    desc:      "Upload a reference and your drawing side-by-side. Get a pose match score, flagged deviations, and directional correction arrows.",
+    accent:    "linear-gradient(90deg, #2563eb, #7B61FF)",
+    iconBg:    "#eff6ff",
     iconColor: "#2563eb",
   },
   {
-    to:     "/practice",
-    Icon:   Target,
-    title:  "Practice Mode",
-    desc:   "Work through guided pose exercises with real-time feedback. Build muscle memory for accurate figure drawing.",
-    accent: "linear-gradient(90deg, #059669, #10b981)",
-    iconBg: "#ecfdf5",
+    to:        "/practice",
+    Icon:      Target,
+    title:     "Practice Mode",
+    desc:      "Work through guided pose exercises with real-time feedback. Build muscle memory for accurate figure drawing.",
+    accent:    "linear-gradient(90deg, #059669, #10b981)",
+    iconBg:    "#ecfdf5",
     iconColor: "#059669",
   },
   {
-    to:     "/reference",
-    Icon:   Image,
-    title:  "Reference Mode",
-    desc:   "Browse and search a curated library of reference poses. Filter by category, difficulty, or body region.",
-    accent: "linear-gradient(90deg, #d97706, #f59e0b)",
-    iconBg: "#fffbeb",
+    to:        "/gesture",
+    Icon:      Zap,
+    title:     "Gesture Mode",
+    desc:      "Study a pose for a limited time, then draw it from memory. Build speed, flow, and visual recall with timed sessions.",
+    accent:    "linear-gradient(90deg, #d97706, #f59e0b)",
+    iconBg:    "#fffbeb",
     iconColor: "#d97706",
   },
   {
-    to:     "/challenge",
-    Icon:   Trophy,
-    title:  "Challenge Mode",
-    desc:   "Take on timed pose challenges and earn accuracy scores. Track your improvement over sessions.",
-    accent: "linear-gradient(90deg, #dc2626, #f97316)",
-    iconBg: "#fff1f2",
+    to:        "/reference",
+    Icon:      Image,
+    title:     "Reference Mode",
+    desc:      "Browse and search a curated library of reference poses. Filter by category, difficulty, or body region.",
+    accent:    "linear-gradient(90deg, #dc2626, #f97316)",
+    iconBg:    "#fff1f2",
     iconColor: "#dc2626",
   },
   {
-    to:     "/anatomy",
-    Icon:   Bone,
-    title:  "Anatomy Breakdown",
-    desc:   "Explore the human skeleton and muscle groups interactively. Understand how anatomy drives pose and gesture.",
-    accent: "linear-gradient(90deg, #0891b2, #06b6d4)",
-    iconBg: "#ecfeff",
+    to:        "/anatomy",
+    Icon:      Bone,
+    title:     "Anatomy Breakdown",
+    desc:      "Explore the human skeleton and muscle groups interactively. Understand how anatomy drives pose and gesture.",
+    accent:    "linear-gradient(90deg, #0891b2, #06b6d4)",
+    iconBg:    "#ecfeff",
     iconColor: "#0891b2",
   },
 ];
-
-
-// ── Dashboard ─────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   return (
@@ -105,9 +99,6 @@ export default function Dashboard() {
     </>
   );
 }
-
-
-// ── ModeCard ──────────────────────────────────────────────────────────────────
 
 function ModeCard({ to, Icon, title, desc, accent, iconBg, iconColor }) {
   return (
