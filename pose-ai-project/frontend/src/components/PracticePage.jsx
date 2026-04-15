@@ -10,7 +10,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import axios from "axios";
 import {
   ArrowLeft, Play, Square, RotateCcw, ArrowRight, SkipForward,
@@ -137,9 +137,26 @@ function ScoreRing({ score }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function PracticePage() {
+  const location = useLocation();
+
+  // Resolve incoming pose: router state → localStorage → random fallback
+  const resolveInitialPose = () => {
+    const fromState = location.state?.pose;
+    if (fromState) {
+      localStorage.setItem("selectedPose", JSON.stringify(fromState));
+      return fromState;
+    }
+    try {
+      const stored = localStorage.getItem("selectedPose");
+      if (stored) return JSON.parse(stored);
+    } catch (_) {}
+    return pickRandom(poses, null);
+  };
+
   // ── State ──────────────────────────────────────────────────────────────────
-  const [phase,       setPhase]       = useState("idle");     // idle|running|done|review
-  const [pose,        setPose]        = useState(() => pickRandom(poses, null));
+  const [phase,       setPhase]       = useState("idle");
+  const [pose,        setPose]        = useState(resolveInitialPose);
+  const [fromLibrary, setFromLibrary] = useState(() => !!location.state?.pose);
   const [timerSecs,   setTimerSecs]   = useState(60);         // selected duration
   const [remaining,   setRemaining]   = useState(60);         // countdown value
   const [drawFile,    setDrawFile]    = useState(null);
@@ -332,6 +349,7 @@ export default function PracticePage() {
   const handleNext = () => {
     stopTimer();
     setPose(pickRandom(poses, pose.id));
+    setFromLibrary(false);
     setPhase("idle");
     setRemaining(timerSecs);
     setDrawFile(null);
@@ -378,6 +396,14 @@ export default function PracticePage() {
         )}
       </div>
 
+      {/* From-library banner */}
+      {fromLibrary && (
+        <div className="pp-library-banner">
+          <span>📚 Pose loaded from library — <strong>{pose.title}</strong></span>
+          <Link to="/pose-library" className="pp-library-link">← Back to Library</Link>
+        </div>
+      )}
+
       {/* Loading / error */}
       {loading && (
         <div className="pp-loading">
@@ -404,7 +430,7 @@ export default function PracticePage() {
             <img
               ref={refImgRef}
               src={pose.imageUrl}
-              alt={pose.label}
+              alt={pose.label || pose.title}
               className={`pp-ref-img${phase === "idle" ? " blurred" : ""}`}
               crossOrigin="anonymous"
             />
@@ -417,9 +443,9 @@ export default function PracticePage() {
           </div>
 
           <div className="pp-pose-info">
-            <div className="pp-pose-name">{pose.label}</div>
-            <div className="pp-pose-desc">{pose.description}</div>
-            {(phase === "running" || phase === "done" || phase === "review") && (
+            <div className="pp-pose-name">{pose.label || pose.title}</div>
+            <div className="pp-pose-desc">{pose.description || ""}</div>
+            {(phase === "running" || phase === "done" || phase === "review") && pose.tips && (
               <div className="pp-pose-tips">
                 {pose.tips.map((tip, i) => (
                   <span key={i} className="pp-pose-tip">{tip}</span>
@@ -457,7 +483,7 @@ export default function PracticePage() {
 
             {/* Pose category chip */}
             <span style={{ fontSize: 11, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: 1 }}>
-              {pose.category} · {pose.label}
+              {pose.category} · {pose.label || pose.title}
             </span>
           </div>
 
@@ -581,7 +607,7 @@ export default function PracticePage() {
       {phase === "review" && result && (
         <div className="pp-results">
           <div className="pp-results-header">
-            <span className="pp-results-title">Session Results — {pose.label}</span>
+            <span className="pp-results-title">Session Results — {pose.label || pose.title}</span>
             <span className="pp-panel-badge" style={{ background: "var(--purple-50)", color: "var(--grad-from)" }}>
               {fmt(timerSecs)} session
             </span>

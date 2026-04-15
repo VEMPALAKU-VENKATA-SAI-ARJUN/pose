@@ -7,7 +7,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Wand2, Download, RotateCcw, User, SlidersHorizontal, ChevronDown, LayoutGrid } from "lucide-react";
+import { ArrowLeft, Wand2, Download, RotateCcw, SlidersHorizontal, ChevronDown, LayoutGrid } from "lucide-react";
 import PoseScene, { CAMERA_PRESETS } from "./PoseScene";
 import { POSE_LIST, POSES, parseTextToPose, parseTextToJoints } from "../../data/referencePoses";
 import { clampAngle, getRange } from "../../data/jointConstraints";
@@ -88,10 +88,9 @@ export default function ReferenceMode() {
     const text = promptText.trim();
     setPromptText("");
 
-    // Try advanced hybrid parser first
+    // Try advanced hybrid parser first (rules → AI fallback)
     const advanced = await parseTextToJoints(text);
     if (advanced) {
-      // Merge generated joints on top of current pose
       setJointAngles(prev => {
         const next = { ...prev };
         for (const [bone, rot] of Object.entries(advanced.joints)) {
@@ -100,10 +99,13 @@ export default function ReferenceMode() {
         return next;
       });
       setActivePose(null);
-      const ruleCount = advanced.matchedRules.length;
+      const ruleCount  = advanced.matchedRules.length;
+      const sourceNote = advanced.source === "ai" ? " ✦ AI" : "";
       const presetNote = advanced.presetId ? ` (base: ${POSES[advanced.presetId]?.name})` : "";
       setToast({
-        msg: `Applied ${ruleCount} rule${ruleCount !== 1 ? "s" : ""}${presetNote}`,
+        msg: advanced.source === "ai"
+          ? `✦ AI pose generated`
+          : `Applied ${ruleCount} rule${ruleCount !== 1 ? "s" : ""}${presetNote}`,
         key: Date.now(),
       });
       return;
@@ -174,9 +176,9 @@ export default function ReferenceMode() {
           ))}
 
           {/* Pose Presets dropdown */}
-          <div className="rm-jc-wrap" ref={posesRef}>
+          <div className="rm-pp-wrap" ref={posesRef}>
             <button
-              className={`rm-jc-btn${showPoses ? " active" : ""}`}
+              className={`rm-pp-btn${showPoses ? " active" : ""}`}
               onClick={() => { setShowPoses(v => !v); setShowControls(false); }}
             >
               <LayoutGrid size={13} />
@@ -185,11 +187,11 @@ export default function ReferenceMode() {
             </button>
 
             {showPoses && (
-              <div className="rm-jc-dropdown">
-                <div className="rm-jc-dropdown-header">
-                  <span className="rm-jc-dropdown-title">Pose Presets</span>
+              <div className="rm-pp-dropdown">
+                <div className="rm-pp-dropdown-header">
+                  <span className="rm-pp-dropdown-title">Pose Presets</span>
                 </div>
-                <div className="rm-jc-scroll">
+                <div className="rm-pp-scroll">
                   {POSE_LIST.map(pose => (
                     <button
                       key={pose.id}

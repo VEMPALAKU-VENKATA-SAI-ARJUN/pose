@@ -8,6 +8,9 @@ import AnalysisPage   from "./components/AnalysisPage";
 import PracticePage   from "./components/PracticePage";
 import GestureMode    from "./components/gesture/GestureMode";
 import ReferenceMode  from "./components/reference/ReferenceMode";
+import AnatomyPage    from "./components/anatomy/AnatomyPage";
+import StickFigureMode from "./components/stick-figure/StickFigureMode";
+import PoseLibrary    from "./components/pose-library/PoseLibrary";
 
 // Placeholder pages for modes not yet built
 const Placeholder = ({ title }) => (
@@ -30,7 +33,9 @@ createRoot(document.getElementById("root")).render(
         <Route path="/gesture"   element={<GestureMode />} />
         <Route path="/reference" element={<ReferenceMode />} />
         <Route path="/challenge" element={<Placeholder title="Challenge Mode" />} />
-        <Route path="/anatomy"   element={<Placeholder title="Anatomy Breakdown" />} />
+        <Route path="/anatomy"       element={<AnatomyPage />} />
+        <Route path="/stick-figure"  element={<StickFigureMode />} />
+        <Route path="/pose-library"  element={<PoseLibrary />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>

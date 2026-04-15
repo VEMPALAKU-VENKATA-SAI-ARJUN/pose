@@ -77,7 +77,7 @@
   transition: opacity 0.15s;
   white-space: nowrap;
 }
-.rm-prompt-btn:hover { opacity: 0.88; }
+.rm-prompt-btn:hover { opacity: 0.88; transform: translateY(-2px) ; }
 
 .rm-topbar-right {
   display: flex;
@@ -108,8 +108,8 @@
   padding: 0 14px;
   border-radius: 8px;
   border: 1px solid var(--purple-200);
-  background: var(--purple-50);
-  color: var(--grad-from);
+  background: var(--grad);
+  color: #fff;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -118,7 +118,7 @@
   gap: 5px;
   transition: background 0.15s;
 }
-.rm-export-btn:hover { background: var(--purple-100); }
+.rm-export-btn:hover { background: var(--purple-100);transform: translateY(-2px) ;color: #555df7; }
 
 /* ── Body ─────────────────────────────────────────────────────────────────── */
 .rm-body {
@@ -264,7 +264,87 @@
   75%  { opacity: 1; }
   100% { opacity: 0; }
 }
+/*pose presets*/
+.rm-pp-wrap {
+  position: relative;
+}
 
+.rm-pp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: linear-gradient(135deg,#555df7, #61c2ff);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.rm-pp-btn:hover,
+.rm-pp-btn.active {
+  background: linear-gradient(135deg,#555df7, #61c2ff);
+  color: #ffffff;
+  opacity: 0.88;
+  border-color: var(--purple-200);
+   transform: translateY(-2px) ;
+}
+
+/* Dropdown panel */
+.rm-pp-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 240px;
+  max-height: calc(100vh - 80px);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+  display: flex;
+  flex-direction: column;
+  z-index: 300;
+  animation: rmDropDown 0.18s ease both;
+  overflow: hidden;
+}
+
+@keyframes rmDropDown {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+.rm-pp-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.rm-pp-dropdown-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+}
+
+.rm-pp-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.rm-pp-scroll::-webkit-scrollbar { width: 4px; }
+.rm-pp-scroll::-webkit-scrollbar-track { background: transparent; }
+.rm-pp-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 /* ── Joint Controls dropdown ──────────────────────────────────────────────── */
 .rm-jc-wrap {
   position: relative;
@@ -278,8 +358,8 @@
   padding: 0 12px;
   border-radius: 8px;
   border: 1px solid var(--border);
-  background: var(--bg-card);
-  color: var(--text-secondary);
+  background: linear-gradient(135deg,#7f03c2, #f26ef6);
+  color: #fff;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -288,9 +368,11 @@
 }
 .rm-jc-btn:hover,
 .rm-jc-btn.active {
-  background: var(--purple-50);
-  color: var(--grad-from);
+  background: linear-gradient(135deg,#7f03c2, #f26ef6);
+  color: #ffffff;
+  opacity: 0.88;
   border-color: var(--purple-200);
+  transform: translateY(-2px) ;
 }
 
 /* Dropdown panel */
@@ -454,4 +536,139 @@
 @media (max-width: 640px) {
   .rm-sidebar, .rm-controls { display: none; }
   .rm-topbar { flex-wrap: wrap; height: auto; padding: 8px 12px; }
+}
+
+/* ── Stick Figure Panel ─────────────────────────────────────────────────── */
+
+.rm-sf-panel {
+  width: 320px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--bg-card);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.rm-sf-canvas-wrap {
+  flex: 1;
+  position: relative;
+  background: #1a1a2e;
+  min-height: 0;
+}
+
+.rm-sf-canvas-wrap canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.rm-sf-controls {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.rm-sf-control-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.rm-sf-control-row label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  flex: 1;
+}
+
+.rm-sf-control-row input[type="range"] {
+  flex: 1;
+  accent-color: #f59e0b;
+}
+
+.rm-sf-seg {
+  display: flex;
+  gap: 2px;
+}
+
+.rm-sf-seg button {
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  text-transform: capitalize;
+}
+
+.rm-sf-seg button.active {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  color: #fff;
+  border-color: transparent;
+}
+
+.rm-sf-export {
+  width: 100%;
+  padding: 6px 0;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rm-sf-export:not(:disabled):hover {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  color: #fff;
+  border-color: transparent;
+}
+
+.rm-sf-export:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Toggle button in top bar */
+.rm-sf-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.rm-sf-toggle:hover,
+.rm-sf-toggle.active {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  color: #fff;
+  border-color: transparent;
+}
+
+/* Responsive overrides */
+@media (max-width: 900px) {
+  .rm-sf-panel { width: 260px; }
+}
+
+@media (max-width: 640px) {
+  .rm-sf-panel { display: none; }
 }

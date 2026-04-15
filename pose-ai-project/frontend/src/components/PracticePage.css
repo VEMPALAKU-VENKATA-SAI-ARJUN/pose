@@ -574,3 +574,28 @@
 .pp-cat-gesture   { background: #fff7ed; color: #d97706; }
 .pp-cat-sitting   { background: #f0fdf4; color: #16a34a; }
 .pp-cat-anatomy   { background: var(--purple-50); color: var(--grad-from); }
+
+/* ── Library banner ───────────────────────────────────────────────────────── */
+.pp-library-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--purple-50);
+  border: 1px solid var(--purple-200);
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--text-primary);
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.pp-library-link {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--grad-from);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.pp-library-link:hover { text-decoration: underline; }

@@ -224,25 +224,41 @@ export function parseTextToPose(text) {
 }
 
 /**
- * parseTextToJoints — hybrid parser
+ * parseTextToJoints — three-tier hybrid parser
  *
- * Strategy:
- *   1. Check if input matches a known preset keyword
- *   2. If yes, load that preset as the base
- *   3. Run the advanced rule engine on top of the base
- *   4. If no preset match and no rule match, return null
+ * Tier 1 — Preset match:   known keyword → load preset as base
+ * Tier 2 — Rule engine:    rule tokens found → apply poseRules on top of base
+ * Tier 3 — AI generation:  complex/narrative prompt → call LLM via /api/pose
  *
- * Returns { joints, matchedRules, intensity, presetId } or null
+ * Returns { joints, matchedRules, intensity, presetId, source } or null
  */
 export async function parseTextToJoints(text) {
   const { parseTextToPoseAdvanced, hasAdvancedMatch } = await import("./poseRules.js");
+  const { isComplexPrompt, generatePoseFromAI } = await import("./poseAI.js");
 
   const presetId = parseTextToPose(text);
   const base     = presetId ? { ...POSES[presetId].joints } : {};
   const hasRules = hasAdvancedMatch(text);
 
-  if (!presetId && !hasRules) return null;
+  // ── Tier 1 + 2: preset + rule engine ──────────────────────────────────────
+  if (presetId || hasRules) {
+    const result = parseTextToPoseAdvanced(text, base);
+    return { ...result, presetId, source: "rules" };
+  }
 
-  const result = parseTextToPoseAdvanced(text, base);
-  return { ...result, presetId };
+  // ── Tier 3: AI for complex / narrative prompts ─────────────────────────────
+  if (isComplexPrompt(text)) {
+    const aiResult = await generatePoseFromAI(text);
+    if (aiResult) {
+      return {
+        joints:       aiResult.joints,
+        matchedRules: [],
+        intensity:    1.0,
+        presetId:     null,
+        source:       "ai",
+      };
+    }
+  }
+
+  return null;
 }

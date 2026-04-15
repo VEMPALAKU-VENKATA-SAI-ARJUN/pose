@@ -33,7 +33,7 @@ async function getAPLandmarker() {
       return PoseLandmarker.createFromOptions(vision, {
         baseOptions: {
           modelAssetPath:
-            "https://storage.googleapis.com/mediapipe-assets/pose_landmarker_lite.task",
+            "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
           delegate: "GPU",
         },
         runningMode: "IMAGE",
@@ -614,3 +614,4 @@ export default function AnalysisPage() {
     </div>
   );
 }
+

@@ -4,12 +4,12 @@
 
 import { Link } from "react-router-dom";
 import {
-  ScanSearch, Scale, Target, Zap, Image, Bone, ArrowRight, Sparkles,
+  ScanSearch, Scale, Target, Zap, Image, Bone, ArrowRight, Sparkles, PenLine, BookOpen,
 } from "lucide-react";
 import "./Dashboard.css";
 
 const MODES = [
-  {
+ /* {
     to:        "/analyze",
     Icon:      ScanSearch,
     title:     "Analysis Mode",
@@ -17,6 +17,24 @@ const MODES = [
     accent:    "linear-gradient(90deg, #7B61FF, #A855F7)",
     iconBg:    "#f5f3ff",
     iconColor: "#7B61FF",
+  },*/
+  {
+    to:        "/pose-library",
+    Icon:      BookOpen,
+    title:     "Pose Library",
+    desc:      "Browse a filterable library of reference poses. Filter by gender, category, difficulty, and camera angle. Send any pose directly to Practice, Stick Figure, or Analysis.",
+    accent:    "linear-gradient(90deg, #7B61FF, #A855F7)",
+    iconBg:    "#f5f3ff",
+    iconColor: "#7B61FF",
+  },
+   {
+    to:        "/anatomy",
+    Icon:      Bone,
+    title:     "Anatomy Breakdown",
+    desc:      "Explore the human skeleton and muscle groups interactively. Understand how anatomy drives pose and gesture.",
+    accent:    "linear-gradient(90deg, #0891b2, #06b6d4)",
+    iconBg:    "#ecfeff",
+    iconColor: "#0891b2",
   },
   {
     to:        "/compare",
@@ -26,6 +44,15 @@ const MODES = [
     accent:    "linear-gradient(90deg, #2563eb, #7B61FF)",
     iconBg:    "#eff6ff",
     iconColor: "#2563eb",
+  },
+  {
+    to:        "/reference",
+    Icon:      Image,
+    title:     "Reference Mode",
+    desc:      "Browse and search a curated library of reference poses. Filter by category, difficulty, or body region.",
+    accent:    "linear-gradient(90deg, #dc2626, #f97316)",
+    iconBg:    "#fff1f2",
+    iconColor: "#dc2626",
   },
   {
     to:        "/practice",
@@ -45,24 +72,16 @@ const MODES = [
     iconBg:    "#fffbeb",
     iconColor: "#d97706",
   },
-  {
-    to:        "/reference",
-    Icon:      Image,
-    title:     "Reference Mode",
-    desc:      "Browse and search a curated library of reference poses. Filter by category, difficulty, or body region.",
-    accent:    "linear-gradient(90deg, #dc2626, #f97316)",
-    iconBg:    "#fff1f2",
-    iconColor: "#dc2626",
-  },
-  {
-    to:        "/anatomy",
-    Icon:      Bone,
-    title:     "Anatomy Breakdown",
-    desc:      "Explore the human skeleton and muscle groups interactively. Understand how anatomy drives pose and gesture.",
-    accent:    "linear-gradient(90deg, #0891b2, #06b6d4)",
-    iconBg:    "#ecfeff",
-    iconColor: "#0891b2",
-  },
+ /* {
+    to:        "/stick-figure",
+    Icon:      PenLine,
+    title:     "Stick Figure Mode",
+    desc:      "Convert any pose into a clean 2D stick figure. Adjust simplification, overlays, and export for use in your drawings.",
+    accent:    "linear-gradient(90deg, #f59e0b, #ef4444)",
+    iconBg:    "#fff7ed",
+    iconColor: "#f59e0b",
+  },*/
+  
 ];
 
 export default function Dashboard() {
@@ -79,7 +98,7 @@ export default function Dashboard() {
            <h1 style={{fontSize:100}}>
            <span>PoseAI</span><br />
           </h1>
-          <span className="hero-eyebrow">AI-Powered Figure Analysis</span>
+          <span className="hero-eyebrow">A beginner friendly AI coach</span>
           <h1>
             Master every <span>pose</span>,<br />
             perfect every <span>line</span>.

@@ -39,6 +39,14 @@ app.use("/api/analysis", analysisRoute);
 const posesRoute = require("./routes/posesRoute");
 app.use("/api/poses", posesRoute);
 
+// ── AI pose generation route ──────────────────────────────────────────────────
+const poseAIRoute = require("./routes/poseAIRoute");
+app.use("/api/pose", poseAIRoute);
+
+// ── Static Pose Library route ─────────────────────────────────────────────────
+const poseLibraryRoute = require("./routes/poseLibraryRoute");
+app.use("/api/library", poseLibraryRoute);
+
 // ── Multer instances ──────────────────────────────────────────────────────────
 
 const imageFilter = (_req, file, cb) => {
