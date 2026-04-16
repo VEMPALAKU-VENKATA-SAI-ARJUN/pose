@@ -98,7 +98,7 @@ export default function Dashboard() {
            <h1 style={{fontSize:100}}>
            <span>PoseAI</span><br />
           </h1>
-          <span className="hero-eyebrow">A beginner friendly AI coach</span>
+          <span className="hero-eyebrow">A beginner friendly AI art coach</span>
           <h1>
             Master every <span>pose</span>,<br />
             perfect every <span>line</span>.

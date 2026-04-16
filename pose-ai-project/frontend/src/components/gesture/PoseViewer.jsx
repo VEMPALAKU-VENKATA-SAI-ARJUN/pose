@@ -36,16 +36,24 @@ export default function PoseViewer({
   if (!pose) return null;
 
   const diffColor = {
-    easy:   { bg: "rgba(16,185,129,0.18)", color: "#34d399" },
-    medium: { bg: "rgba(245,158,11,0.18)",  color: "#fbbf24" },
-    hard:   { bg: "rgba(236,72,153,0.18)",  color: "#f472b6" },
+    easy:         { bg: "rgba(16,185,129,0.18)", color: "#34d399" },
+    beginner:     { bg: "rgba(16,185,129,0.18)", color: "#34d399" },
+    medium:       { bg: "rgba(245,158,11,0.18)",  color: "#fbbf24" },
+    intermediate: { bg: "rgba(245,158,11,0.18)",  color: "#fbbf24" },
+    hard:         { bg: "rgba(236,72,153,0.18)",  color: "#f472b6" },
+    advanced:     { bg: "rgba(236,72,153,0.18)",  color: "#f472b6" },
   }[pose.difficulty] || { bg: "rgba(255,255,255,0.1)", color: "#fff" };
 
   const catColor = {
-    basic:   "#60a5fa",
-    gesture: "#fb923c",
-    sitting: "#4ade80",
-    anatomy: "#a78bfa",
+    basic:       "#60a5fa",
+    gesture:     "#fb923c",
+    sitting:     "#4ade80",
+    anatomy:     "#a78bfa",
+    standing:    "#60a5fa",
+    running:     "#fb923c",
+    walking:     "#34d399",
+    jumping:     "#f472b6",
+    interaction: "#a78bfa",
   }[pose.category] || "#fff";
 
   const hasFlow = showAction || showRhythm || showBalance;
@@ -55,7 +63,7 @@ export default function PoseViewer({
       <img
         ref={imgRef}
         src={pose.imageUrl}
-        alt={pose.label}
+        alt={pose.label ?? pose.title}
         className="pv-img"
         draggable={false}
         onLoad={() => {
@@ -80,7 +88,7 @@ export default function PoseViewer({
 
       <div className="pv-meta">
         <div className="pv-meta-left">
-          <span className="pv-label">{pose.label}</span>
+          <span className="pv-label">{pose.label ?? pose.title}</span>
           <div className="pv-chips">
             <span className="pv-chip" style={{ background: diffColor.bg, color: diffColor.color }}>
               {pose.difficulty}
