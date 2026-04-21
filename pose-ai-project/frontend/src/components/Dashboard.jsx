@@ -4,7 +4,7 @@
 
 import { Link } from "react-router-dom";
 import {
-  ScanSearch, Scale, Target, Zap, Image, Bone, ArrowRight, Sparkles, PenLine, BookOpen,
+  ScanSearch, Scale, Target, Zap, Image, Bone, ArrowRight, Sparkles, PenLine, BookOpen, Box,
 } from "lucide-react";
 import "./Dashboard.css";
 
@@ -47,9 +47,9 @@ const MODES = [
   },
   {
     to:        "/reference",
-    Icon:      Image,
+    Icon:      Box,
     title:     "Reference Mode",
-    desc:      "Browse and search a curated library of reference poses. Filter by category, difficulty, or body region.",
+    desc:      "Pose a 3D figure using joint controls or text prompts. Switch camera angles, apply preset poses, and export a PNG reference for your drawings.",
     accent:    "linear-gradient(90deg, #dc2626, #f97316)",
     iconBg:    "#fff1f2",
     iconColor: "#dc2626",
@@ -67,7 +67,7 @@ const MODES = [
     to:        "/gesture",
     Icon:      Zap,
     title:     "Gesture Mode",
-    desc:      "Study a pose for a limited time, then draw it from memory. Build speed, flow, and visual recall with timed sessions.",
+    desc:      "Study a pose for a limited time, then rebuild it from memory. Build speed, flow, and visual recall with timed sessions.",
     accent:    "linear-gradient(90deg, #d97706, #f59e0b)",
     iconBg:    "#fffbeb",
     iconColor: "#d97706",

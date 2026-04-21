@@ -14,14 +14,17 @@ import { Link } from "react-router-dom";
 import {
   ArrowLeft, Play, SkipForward, RotateCcw,
   Activity, Wind, AlignCenter, CheckCircle,
+  Zap, Sun, Moon, Flame, Puzzle, BarChart2,
+  Eye, EyeOff, BookOpen,
 } from "lucide-react";
 import GestureTimer    from "./GestureTimer";
 import PoseViewer      from "./PoseViewer";
 import FeedbackPanel   from "./FeedbackPanel";
-import FlowOverlay     from "./FlowOverlay";
 import SkeletonBuilder from "./SkeletonBuilder";
+import SkeletonCompare from "./SkeletonCompare";
 import { skeletonToLandmarks } from "./skeletonToLandmarks";
 import { compareJoints, generateJointFeedback } from "./poseAccuracy";
+import { detectRefJoints } from "./detectRefJoints";
 import rawPoses        from "../../data/poseLibraryData.js";
 import "./GestureMode.css";
 
@@ -106,13 +109,36 @@ export default function GestureMode() {
   const builderRef = useRef(null);
 
   // Evaluation result
-  const [evalResult, setEvalResult] = useState(null); // { score, feedback, flaggedJoints, landmarks }
+  const [evalResult, setEvalResult] = useState(null);
+
+  // Reference joints detected from the current pose image
+  // Reset to null on every pose change, populated by detectRefJoints()
+  const [refJointsDetected, setRefJointsDetected] = useState(null);
+  const [refDetecting,      setRefDetecting]      = useState(false); // { score, feedback, flaggedJoints, landmarks }
 
   // Reference panel — hidden by default, shown only while holding button
   const [showReference, setShowReference] = useState(false);
 
   const pool = useRef(buildPool(category, difficulty));
   useEffect(() => { pool.current = buildPool(category, difficulty); }, [category, difficulty]);
+
+  // ── Detect reference joints whenever pose changes ──────────────────────────
+  useEffect(() => {
+    if (!pose?.imageUrl) return;
+    setRefJointsDetected(null);   // clear stale data immediately
+    setRefDetecting(true);
+    console.log("[GestureMode] Detecting reference joints for:", pose.label);
+    detectRefJoints(pose.imageUrl)
+      .then(joints => {
+        console.log("[GestureMode] Reference joints ready:", joints);
+        setRefJointsDetected(joints);
+      })
+      .catch(err => {
+        console.warn("[GestureMode] Reference detection failed:", err.message);
+        setRefJointsDetected(null);
+      })
+      .finally(() => setRefDetecting(false));
+  }, [pose?.id]);
 
   // ── Timer ──────────────────────────────────────────────────────────────────
   const stopTimer = useCallback(() => {
@@ -152,38 +178,41 @@ export default function GestureMode() {
   const handleSubmit = useCallback(() => {
     const skeleton = builderRef.current?.exportSkeleton();
     if (!skeleton) return;
-
     const { joints } = skeleton;
 
-    // Reference joints — a neutral standing pose used as baseline.
-    // In a production system these would be stored per-pose in the dataset.
-    const refJoints = {
-      nose:            { x: 0.50, y: 0.08 },
-      left_shoulder:   { x: 0.35, y: 0.25 },
-      right_shoulder:  { x: 0.65, y: 0.25 },
-      left_elbow:      { x: 0.22, y: 0.42 },
-      right_elbow:     { x: 0.78, y: 0.42 },
-      left_wrist:      { x: 0.12, y: 0.58 },
-      right_wrist:     { x: 0.88, y: 0.58 },
-      left_hip:        { x: 0.40, y: 0.55 },
-      right_hip:       { x: 0.60, y: 0.55 },
-      left_knee:       { x: 0.38, y: 0.73 },
-      right_knee:      { x: 0.62, y: 0.73 },
-      left_ankle:      { x: 0.37, y: 0.92 },
-      right_ankle:     { x: 0.63, y: 0.92 },
+    // Use MediaPipe-detected joints from the actual reference image.
+    // Fall back to a neutral T-pose only if detection hasn't completed yet.
+    const refJoints = refJointsDetected ?? {
+      nose:           { x: 0.50, y: 0.08 },
+      left_shoulder:  { x: 0.35, y: 0.25 },
+      right_shoulder: { x: 0.65, y: 0.25 },
+      left_elbow:     { x: 0.22, y: 0.42 },
+      right_elbow:    { x: 0.78, y: 0.42 },
+      left_wrist:     { x: 0.12, y: 0.58 },
+      right_wrist:    { x: 0.88, y: 0.58 },
+      left_hip:       { x: 0.40, y: 0.55 },
+      right_hip:      { x: 0.60, y: 0.55 },
+      left_knee:      { x: 0.38, y: 0.73 },
+      right_knee:     { x: 0.62, y: 0.73 },
+      left_ankle:     { x: 0.37, y: 0.92 },
+      right_ankle:    { x: 0.63, y: 0.92 },
     };
 
-    const { score, flaggedJoints, perJoint } = compareJoints(refJoints, joints);
+    console.log("[GestureMode] Evaluating pose:", pose?.label);
+    console.log("[GestureMode] User joints:", joints);
+    console.log("[GestureMode] Reference joints:", refJoints);
+    console.log("[GestureMode] Using detected ref:", !!refJointsDetected);
+
+    const { score, flaggedJoints, perJoint, jointErrors } = compareJoints(refJoints, joints);
     const feedback  = generateJointFeedback(perJoint, score);
     const landmarks = skeletonToLandmarks(joints);
-
-    const updated = saveStreak(streak);
+    const updated   = saveStreak(streak);
     setStreak(updated);
 
-    setEvalResult({ score, feedback, flaggedJoints, landmarks, angleDiffs: perJoint });
+    setEvalResult({ score, feedback, flaggedJoints, landmarks, angleDiffs: perJoint, jointErrors, userJoints: joints, refJoints });
     stopTimer();
     setPhase("compare");
-  }, [streak, stopTimer]);
+  }, [streak, stopTimer, refJointsDetected, pose]);
 
   // ── Retry ──────────────────────────────────────────────────────────────────
   const handleRetry = useCallback(() => {
@@ -229,17 +258,17 @@ export default function GestureMode() {
             <GestureTimer remaining={remaining} total={timerSecs} urgent={urgent} />
           )}
           {isConstruct && (
-            <span className="gm-phase-badge">🧩 Build the Pose</span>
+            <span className="gm-phase-badge"><Puzzle size={12} /> Build the Pose</span>
           )}
           {isCompare && (
-            <span className="gm-phase-badge">📊 Results</span>
+            <span className="gm-phase-badge"><BarChart2 size={12} /> Results</span>
           )}
         </div>
 
         <div className="gm-topbar-right">
           {streak.count > 0 && (
             <span className="gm-streak" aria-label={`${streak.count} day streak`}>
-              🔥 {streak.count}
+              <Flame size={13} /> {streak.count}
             </span>
           )}
           <button
@@ -247,7 +276,7 @@ export default function GestureMode() {
             onClick={() => setTheme(t => t === "light" ? "dark" : "light")}
             aria-label="Toggle theme"
           >
-            {theme === "dark" ? "☀️" : "🌙"}
+            {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
           </button>
         </div>
       </header>
@@ -259,7 +288,7 @@ export default function GestureMode() {
         <main className="gm-config">
           <div className="gm-config-card">
             <div className="gm-config-header">
-              <span style={{ fontSize: 32 }}>🧩</span>
+              <Puzzle size={32} color="var(--grad-from)" />
               <h1>Pose <span>Builder</span></h1>
             </div>
             <p className="gm-config-sub">
@@ -269,7 +298,7 @@ export default function GestureMode() {
 
             {streak.count > 0 && (
               <div className="gm-streak-card">
-                🔥 {streak.count}-day streak — keep it up!
+                <Flame size={14} color="#fbbf24" /> {streak.count}-day streak — keep it up!
               </div>
             )}
 
@@ -376,10 +405,16 @@ export default function GestureMode() {
             </div>
 
             <button
-              className="gm-action-btn gm-action-btn--primary"
-              onClick={handleSkipToConstruct}
-              style={{ marginLeft: "auto" }}
-            >
+                className="gm-action-btn gm-action-btn--outline"
+                onClick={handleNextPose}
+                style={{ marginLeft: "auto" }}
+              >
+                <SkipForward size={13} /> Skip Pose
+              </button>
+              <button
+                className="gm-action-btn gm-action-btn--primary"
+                onClick={handleSkipToConstruct}
+              >
               <CheckCircle size={13} /> I'm Ready — Build It
             </button>
           </div>
@@ -397,6 +432,11 @@ export default function GestureMode() {
               <span className="gm-drawing-label">
                 Reconstruct: <strong>{pose.label}</strong>
               </span>
+              {refDetecting && (
+                <span style={{ fontSize: 11, color: "var(--gm-muted)", display: "flex", alignItems: "center", gap: 5 }}>
+                  <span className="gm-ai-spinner" /> Analysing reference…
+                </span>
+              )}
             </div>
             <div className="gm-construct-header-right">
               {/* Toggle reference visibility */}
@@ -404,7 +444,7 @@ export default function GestureMode() {
                 className="gm-action-btn gm-action-btn--outline"
                 onClick={() => setShowReference(v => !v)}
               >
-                {showReference ? "🙈 Hide Reference" : "👁 Show Reference"}
+                {showReference ? <><EyeOff size={13} /> Hide Reference</> : <><Eye size={13} /> Show Reference</>}
               </button>
               <button
                 className="gm-action-btn gm-action-btn--outline"
@@ -492,16 +532,14 @@ export default function GestureMode() {
 
           {/* Side-by-side: reference image | feedback */}
           <div className="gm-compare-grid">
-            {/* Reference */}
+            {/* Visual skeleton comparison */}
             <div className="gm-compare-panel">
-              <div className="gm-compare-label">Reference Pose</div>
-              <div className="gm-compare-img-wrap">
-                <img
-                  src={pose.imageUrl}
-                  alt={`Reference: ${pose.label}`}
-                  className="gm-compare-img"
-                />
-              </div>
+              <div className="gm-compare-label">Skeleton Comparison</div>
+              <SkeletonCompare
+                userJoints={evalResult.userJoints}
+                refJoints={evalResult.refJoints}
+                jointErrors={evalResult.jointErrors}
+              />
             </div>
 
             {/* Feedback */}

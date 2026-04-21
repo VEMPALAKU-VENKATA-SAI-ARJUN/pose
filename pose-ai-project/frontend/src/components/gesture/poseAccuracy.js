@@ -67,7 +67,6 @@ export function compareJoints(refJoints, userJoints) {
     });
   }
 
-  // Score: 100 minus average angular error, scaled so 90° error → 0
   let score = 100;
   if (perJoint.length > 0) {
     const avgErr = perJoint.reduce((s, d) => s + d.absDiff, 0) / perJoint.length;
@@ -78,7 +77,16 @@ export function compareJoints(refJoints, userJoints) {
     perJoint.filter(d => d.absDiff > 20).map(d => d.key)
   );
 
-  return { score, flaggedJoints, perJoint };
+  // Build per-joint error map: key → { absDiff, severity }
+  const jointErrors = {};
+  for (const d of perJoint) {
+    jointErrors[d.key] = {
+      absDiff:  d.absDiff,
+      severity: d.absDiff > 35 ? "high" : d.absDiff > 20 ? "medium" : "good",
+    };
+  }
+
+  return { score, flaggedJoints, perJoint, jointErrors, refJoints, userJoints };
 }
 
 /**

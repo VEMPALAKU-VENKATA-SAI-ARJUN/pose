@@ -13,20 +13,24 @@
 import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from "react";
 
 // ── Initial joint positions (px, within a 400×520 logical space) ─────────────
+// x < 200 = viewer's LEFT, x > 200 = viewer's RIGHT
+// "left_*" joints belong to the subject's left body side → viewer's RIGHT
+// "right_*" joints belong to the subject's right body side → viewer's LEFT
+// Swapped so the skeleton visually matches the reference image (mirror-correct).
 const INITIAL_JOINTS = {
   nose:           { x: 200, y:  38 },
-  left_shoulder:  { x: 158, y: 105 },  // slightly inward, relaxed
-  right_shoulder: { x: 242, y: 105 },
-  left_elbow:     { x: 128, y: 185 },  // arms angled down ~45°
-  right_elbow:    { x: 272, y: 185 },
-  left_wrist:     { x: 108, y: 262 },  // continuing downward angle
-  right_wrist:    { x: 292, y: 262 },
-  left_hip:       { x: 172, y: 268 },
-  right_hip:      { x: 228, y: 268 },
-  left_knee:      { x: 165, y: 368 },  // legs slightly apart
-  right_knee:     { x: 235, y: 368 },
-  left_ankle:     { x: 160, y: 468 },
-  right_ankle:    { x: 240, y: 468 },
+  left_shoulder:  { x: 242, y: 105 },  // subject's left → viewer's right
+  right_shoulder: { x: 158, y: 105 },  // subject's right → viewer's left
+  left_elbow:     { x: 272, y: 185 },
+  right_elbow:    { x: 128, y: 185 },
+  left_wrist:     { x: 292, y: 262 },
+  right_wrist:    { x: 108, y: 262 },
+  left_hip:       { x: 228, y: 268 },
+  right_hip:      { x: 172, y: 268 },
+  left_knee:      { x: 235, y: 368 },
+  right_knee:     { x: 165, y: 368 },
+  left_ankle:     { x: 240, y: 468 },
+  right_ankle:    { x: 160, y: 468 },
 };
 
 const LOGICAL_W = 400;
